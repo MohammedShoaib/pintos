@@ -141,6 +141,8 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+
+  thread_wake_up();
 }
 
 /* Prints thread statistics. */
@@ -330,8 +332,10 @@ compare (struct list_elem *elem1, struct list_elem *elem2, void *aux)
   return false;
 }
 
-thread_sleep(int64_t ticks)
+void
+thread_sleep (int64_t ticks)
 {
+  printf("thread_sleep ...\n");
   struct thread *cur = thread_current ();
   enum intr_level old_level;
 
@@ -345,6 +349,41 @@ thread_sleep(int64_t ticks)
   }
 
   thread_block ();
+  intr_set_level (old_level);
+}
+
+void thread_wake_up (void) {
+  printf("thread_wake_up ...\n");
+  // struct thread *cur = thread_current ();
+  enum intr_level old_level;
+
+  // ASSERT (!intr_context);
+
+  old_level = intr_disable ();
+
+  struct list_elem *cur_elem;
+  struct list_elem *next_elem;
+  struct thread *t;
+
+  if(!list_empty (&blocked_list))
+    cur_elem = list_begin (&blocked_list);
+
+  while(!list_empty(&blocked_list))
+  {
+    next_elem = list_next (&blocked_list);
+    t = list_entry (cur_elem, struct thread, elem);
+    
+    if(t->wake_up > timer_ticks ())
+      break;
+
+    thread_unblock (t);
+    // t->status = THREAD_READY;
+    // list_push_back (&ready_list, &t->elem);
+    
+    list_pop_front (&blocked_list);
+    cur_elem = next_elem;
+  }
+  
   intr_set_level (old_level);
 }
 
