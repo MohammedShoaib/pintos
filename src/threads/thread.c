@@ -142,7 +142,7 @@ thread_tick (void)
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
 
-  thread_wake_up();
+  // thread_wake_up();
 }
 
 /* Prints thread statistics. */
@@ -172,6 +172,7 @@ tid_t
 thread_create (const char *name, int priority,
                thread_func *function, void *aux) 
 {
+  printf("Thread: %s Priority: %d\n", name, priority);
   struct thread *t;
   struct kernel_thread_frame *kf;
   struct switch_entry_frame *ef;
@@ -226,6 +227,18 @@ thread_block (void)
   schedule ();
 }
 
+bool
+ready_comparator_p (struct list_elem *elem1, struct list_elem *elem2, void *aux)
+{
+  struct thread *t1 = list_entry (elem1, struct thread, elem);
+  struct thread *t2 = list_entry (elem2, struct thread, elem);
+
+  if(t1->priority < t2->priority)
+    return true;
+
+  return false;
+}
+
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
    make the running thread ready.)
@@ -243,7 +256,11 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  
+  //list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list, &t->elem, ready_comparator_p, NULL);
+
+
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -313,8 +330,10 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+  if (cur != idle_thread) {
+    // list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered(&ready_list, &cur->elem, ready_comparator_p, NULL);
+  }
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -408,7 +427,10 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  struct thread *cur = thread_current();
+  cur->priority = new_priority;
+  
+  list_insert_ordered(&ready_list, &cur->elem, ready_comparator_p, NULL);
 }
 
 /* Returns the current thread's priority. */
