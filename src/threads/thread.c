@@ -28,11 +28,11 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
-/* List of blocked threads. */
-static struct list blocked_list;
-
 /* Idle thread. */
 static struct thread *idle_thread;
+
+// /* List of blocked threads. */
+// static struct list block_list;
 
 /* Initial thread, the thread running init.c:main(). */
 static struct thread *initial_thread;
@@ -95,7 +95,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
-  list_init (&blocked_list);
+  // list_init (&block_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -141,8 +141,6 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
-
-  thread_wake_up();
 }
 
 /* Prints thread statistics. */
@@ -317,73 +315,6 @@ thread_yield (void)
     list_push_back (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
   schedule ();
-  intr_set_level (old_level);
-}
-
-bool
-compare (struct list_elem *elem1, struct list_elem *elem2, void *aux)
-{
-  struct thread *t1 = list_entry (elem1, struct thread, elem);
-  struct thread *t2 = list_entry (elem2, struct thread, elem);
-
-  if(t1->wake_up < t2->wake_up)
-    return true;
-
-  return false;
-}
-
-void
-thread_sleep (int64_t ticks)
-{
-  printf("thread_sleep ...\n");
-  struct thread *cur = thread_current ();
-  enum intr_level old_level;
-
-  ASSERT (!intr_context ());
-
-  old_level = intr_disable ();
-  if (cur != idle_thread)
-  {
-    list_insert_ordered(&blocked_list, &cur->elem, compare, NULL);
-    cur->wake_up = ticks;
-  }
-
-  thread_block ();
-  intr_set_level (old_level);
-}
-
-void thread_wake_up (void) {
-  printf("thread_wake_up ...\n");
-  // struct thread *cur = thread_current ();
-  enum intr_level old_level;
-
-  // ASSERT (!intr_context);
-
-  old_level = intr_disable ();
-
-  struct list_elem *cur_elem;
-  struct list_elem *next_elem;
-  struct thread *t;
-
-  if(!list_empty (&blocked_list))
-    cur_elem = list_begin (&blocked_list);
-
-  while(!list_empty(&blocked_list))
-  {
-    next_elem = list_next (&blocked_list);
-    t = list_entry (cur_elem, struct thread, elem);
-    
-    if(t->wake_up > timer_ticks ())
-      break;
-
-    thread_unblock (t);
-    // t->status = THREAD_READY;
-    // list_push_back (&ready_list, &t->elem);
-    
-    list_pop_front (&blocked_list);
-    cur_elem = next_elem;
-  }
-  
   intr_set_level (old_level);
 }
 

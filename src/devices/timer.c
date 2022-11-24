@@ -7,7 +7,7 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
-  
+#include <kernel/list.h>  
 /* See [8254] for hardware details of the 8254 timer chip. */
 
 #if TIMER_FREQ < 19
@@ -30,25 +30,28 @@ static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
+/* Store all blocked threads until time is up. */
+static struct list block_list;
+
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
 void
 timer_init (void) 
 {
-  printf("init...\n");
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+
+  list_init (&block_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
 void
 timer_calibrate (void) 
 {
-  printf("timer_calibrate...\n");
   unsigned high_bit, test_bit;
 
   ASSERT (intr_get_level () == INTR_ON);
-  printf ("Calibrating timer...  \n");
+  printf ("Calibrating timer...  ");
 
   /* Approximate loops_per_tick as the largest power-of-two
      still less than one timer tick. */
@@ -72,7 +75,6 @@ timer_calibrate (void)
 int64_t
 timer_ticks (void) 
 {
-  printf("timer_ticks...\n");
   enum intr_level old_level = intr_disable ();
   int64_t t = ticks;
   intr_set_level (old_level);
@@ -87,19 +89,49 @@ timer_elapsed (int64_t then)
   return timer_ticks () - then;
 }
 
+static bool
+comparator_wake_up_tick (struct list_elem *elem1, struct list_elem *elem2, void *aux)
+{
+  struct thread *t1 = list_entry (elem1, struct thread, elem);
+  struct thread *t2 = list_entry (elem2, struct thread, elem);
+
+  if(t1->wake_up_ticks < t2->wake_up_ticks)
+    return true;
+
+  return false;
+}
+
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void
 timer_sleep (int64_t ticks) 
 {
-  printf("timer_sleep...\n");
+  // printf("timer_sleep start...\n");
+  // 
+
+  // ASSERT (intr_get_level () == INTR_ON);
+  // // while (timer_elapsed (start) < ticks) 
+  // //   thread_yield ();
+  // thread_sleep(start + ticks);
+  // printf("timer_sleep end...\n");
+
+  
+  struct thread *cur = thread_current ();
   int64_t start = timer_ticks ();
+  enum intr_level old_level;
 
   ASSERT (intr_get_level () == INTR_ON);
-  if(timer_elapsed (start) < ticks)
-    thread_sleep(start + ticks);
-  // while (timer_elapsed (start) < ticks) 
-  //   thread_yield ();
+  ASSERT (!intr_context ());
+  ASSERT (cur->status == THREAD_RUNNING);
+
+  old_level = intr_disable ();
+
+  cur->wake_up_ticks = start + ticks;
+
+  list_insert_ordered (&block_list, &cur->elem, comparator_wake_up_tick, NULL);
+  
+  thread_block ();
+  intr_set_level (old_level);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -177,7 +209,30 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
-  thread_tick ();
+
+  timer_wake_up (timer_ticks ());
+}
+
+void 
+timer_wake_up (int64_t ticks)
+{
+  struct list_elem *cur_elem;
+  struct thread *t;
+
+  while(!list_empty (&block_list))
+  {
+    cur_elem = list_front (&block_list);
+    t = list_entry (cur_elem, struct thread, elem);
+
+    if(t->wake_up_ticks > ticks)
+    {
+      break;
+    }
+    else{
+      list_remove (cur_elem);
+      thread_unblock(t);
+    }
+  }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -185,7 +240,6 @@ timer_interrupt (struct intr_frame *args UNUSED)
 static bool
 too_many_loops (unsigned loops) 
 {
-  printf("too_many_loops...\n");
   /* Wait for a timer tick. */
   int64_t start = ticks;
   while (ticks == start)
@@ -210,8 +264,6 @@ too_many_loops (unsigned loops)
 static void NO_INLINE
 busy_wait (int64_t loops) 
 {
-  printf("busy_wait...\n");
-  printf("Loop: %d\n", loops);
   while (loops-- > 0)
     barrier ();
 }
@@ -220,7 +272,6 @@ busy_wait (int64_t loops)
 static void
 real_time_sleep (int64_t num, int32_t denom) 
 {
-  printf("real_time_sleep...\n");
   /* Convert NUM/DENOM seconds into timer ticks, rounding down.
           
         (NUM / DENOM) s          
@@ -249,7 +300,6 @@ real_time_sleep (int64_t num, int32_t denom)
 static void
 real_time_delay (int64_t num, int32_t denom)
 {
-  printf("real_time_delay...\n");
   /* Scale the numerator and denominator down by 1000 to avoid
      the possibility of overflow. */
   ASSERT (denom % 1000 == 0);
