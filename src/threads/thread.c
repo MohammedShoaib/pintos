@@ -208,6 +208,16 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+/**
+ * @brief doing this after thread_unblock() because the function
+ * adds it to ready queue and if its priority is higher than current
+ * make the current thread yield.
+ * 
+ */
+  if(t->priority > thread_current()->priority) {
+    thread_yield();
+  }
+
   return tid;
 }
 
@@ -233,7 +243,13 @@ ready_comparator_p (struct list_elem *elem1, struct list_elem *elem2, void *aux)
   struct thread *t1 = list_entry (elem1, struct thread, elem);
   struct thread *t2 = list_entry (elem2, struct thread, elem);
 
-  if(t1->priority < t2->priority)
+  return preempt_thread(t1, t2);
+}
+
+bool
+preempt_thread(struct thread *t1, struct thread *t2) 
+{
+  if(t1->priority > t2->priority) // shouldn't this be greater than?
     return true;
 
   return false;
@@ -433,6 +449,39 @@ thread_set_priority (int new_priority)
   list_insert_ordered(&ready_list, &cur->elem, ready_comparator_p, NULL);
 }
 
+/* Sets the current thread's priority to NEW_PRIORITY. */
+void
+set_priority_given_thread (struct thread *t, int new_priority, bool is_priority_donated) 
+{
+  enum intr_level old_level;
+  old_level = intr_disable();
+
+  ASSERT (new_priority >= PRI_MIN && new_priority <= PRI_MAX);
+  ASSERT (is_thread (t));
+
+   if (!is_priority_donated){
+     if (t->p_donated == true && new_priority <= t->priority) {
+       t->original_priority = new_priority;
+     } else {
+          t->priority = new_priority;
+          t->original_priority = new_priority;
+     }
+  } else {
+	  t->priority = new_priority;
+    t->p_donated = true;
+  }
+
+  if (t->status == THREAD_READY) {
+      list_remove (&t->elem);
+      list_insert_ordered (&ready_list, &t->elem, ready_comparator_p, NULL);
+  } else if (t->status == THREAD_RUNNING && list_entry (list_begin (&ready_list), struct thread, elem)->priority > t->priority) {
+      thread_yield();
+      // git repo does thread_yield(t)
+  }
+
+  intr_set_level (old_level);
+}
+
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void) 
@@ -558,6 +607,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+
+  list_init (&t->locks_i_hold);
+  t->blocking_lock = NULL;
+  t->p_donated = false;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

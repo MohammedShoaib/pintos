@@ -102,6 +102,11 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
 
     int64_t wake_up;                    /* Local wake up time for thread*/
+
+    bool p_donated;
+    int original_priority;
+    struct list locks_i_hold; // A, B, C
+    struct lock *blocking_lock;
   };
 
 /* If false (default), use round-robin scheduler.
@@ -141,5 +146,9 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+bool ready_comparator_p (struct list_elem *elem1, struct list_elem *elem2, void *aux);
+bool preempt_thread(struct thread *t1, struct thread *t2);
+void set_priority_given_thread (struct thread *t, int new_priority, bool is_priority_donated);
 
 #endif /* threads/thread.h */
