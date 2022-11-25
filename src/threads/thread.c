@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/fixed-point.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -205,7 +206,129 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+    if (thread_mlfqs)
+    {
+        calculate_recent_cpu (t, NULL);
+        calculate_priority (t, NULL);
+        thread_calculate_recent_cpu ();
+        thread_calculate_priority ();
+    }
+
+    if (t->priority > thread_current ()-> priority)
+    {
+        thread_yield_current (thread_current());
+    }
+
   return tid;
+}
+
+/* Once per second the value of recent_cpu is recalculated
+ * for every thread (whether running, ready, or blocked)
+ */
+void
+calculate_recent_cpu_for_all (void)
+{
+    thread_foreach (calculate_recent_cpu, NULL);
+}
+
+void
+thread_calculate_recent_cpu (void)
+{
+    calculate_recent_cpu (thread_current (), NULL);
+}
+
+void
+calculate_recent_cpu (struct thread *cur, void *aux UNUSED)
+{
+    ASSERT (is_thread (cur));
+    if (cur != idle_thread)
+    {
+        /* load_avg and recent_cpu are fixed-point numbers */
+        int load = MULT_INT (load_avg, 2);
+        int coefficient = DIVIDE (load, ADD_INT (load, 1));
+        cur->recent_cpu = ADD_INT (MULTIPLE (coefficient, cur->recent_cpu),
+                                   cur->nice);
+    }
+}
+
+/* Calculate priority for all threads in all_list.
+ *  It is also recalculated once every fourth clock tick, for every thread.
+ */
+void
+calculate_advanced_priority_for_all (void)
+{
+    thread_foreach (calculate_advanced_priority, NULL);
+    /* resort ready_list */
+    if (!list_empty (&ready_list))
+    {
+        list_sort (&ready_list, priority_more, NULL);
+    }
+}
+
+void
+thread_calculate_priority (void)
+{
+    calculate_priority (thread_current (), NULL);
+}
+
+void
+calculate_priority (struct thread *cur, void *aux UNUSED)
+{
+    ASSERT (is_thread (cur));
+    if (cur != idle_thread)
+    {
+        /* convert to integer nearest for (recent_cpu / 4) instead
+         * of the whole priority.
+         */
+        cur->priority = PRI_MAX -
+                        CONVERT_TO_INT_NEAREST (DIV_INT (cur->recent_cpu, 4)) -  cur->nice * 2;
+        /* Make sure it falls in the priority boundary */
+        if (cur->priority < PRI_MIN)
+        {
+            cur->priority = PRI_MIN;
+        }
+        else if (cur->priority > PRI_MAX)
+        {
+            cur->priority = PRI_MAX;
+        }
+    }
+}
+
+/* Calculate load_avg.
+ * load_avg, often known as the system load average, estimates the average
+ * number of threads ready to run over the past minute. Like recent_cpu, it is
+ * an exponentially weighted moving average. Unlike priority and recent_cpu,
+ * load_avg is system-wide, not thread-specific. At system boot, it is
+ * initialized to 0. Once per second thereafter, it is updated according to
+ * the following formula:
+ * load_avg = (59/60)*load_avg + (1/60)*ready_threads
+ * where ready_threads is the number of threads that are either running or
+ * ready to run at time of update (not including the idle thread).
+
+ * Because of assumptions made by some of the tests, load_avg must be updated
+ * exactly when the system tick counter reaches a multiple of a second, that
+ * is, when timer_ticks () % TIMER_FREQ == 0, and not at any other time.
+ */
+void
+calculate_load_avg (void)
+{
+    struct thread *cur;
+    int ready_list_threads;
+    int ready_threads;
+
+    cur = thread_current ();
+    ready_list_threads = list_size (&ready_list);
+
+    if (cur != idle_thread)
+    {
+        ready_threads = ready_list_threads + 1;
+    }
+    else
+    {
+        ready_threads = ready_list_threads;
+    }
+    load_avg = MULTIPLE (DIV_INT (CONVERT_TO_FP (59), 60), load_avg) +
+               MULT_INT (DIV_INT (CONVERT_TO_FP (1), 60), ready_threads);
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -300,6 +423,18 @@ thread_exit (void)
   NOT_REACHED ();
 }
 
+static bool
+priority_comparator (const struct list_elem *a_, const struct list_elem *b_,
+               void *aux UNUSED)
+{
+    ASSERT (a_ != NULL);
+    ASSERT (b_ != NULL);
+    const struct thread *a = list_entry (a_, struct thread, elem);
+    const struct thread *b = list_entry (b_, struct thread, elem);
+
+    return a->priority > b->priority;
+}
+
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
 void
@@ -312,7 +447,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_push_back (&ready_list, &cur->elem); //TODO: insert according to priority
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -471,6 +606,26 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
+
+    if (thread_mlfqs)
+    {
+        /* The initial thread starts with a nice value of zero. Other threads
+         * start with a nice value inherited from their parent thread
+         */
+        /* The initial value of recent_cpu is 0 in the first thread created,
+         * or the parent's value in other new threads.
+         */
+        if (t == initial_thread)
+        {
+            t->nice = NICE_DEFAULT;
+            t->recent_cpu = RECENT_CPU_BEGIN;
+        }
+        else
+        {
+            t->nice = thread_get_nice ();
+            t->recent_cpu = thread_get_recent_cpu ();
+        }
+    }
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
