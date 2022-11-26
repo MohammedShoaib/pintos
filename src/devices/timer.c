@@ -105,33 +105,20 @@ comparator_wake_up_tick (struct list_elem *elem1, struct list_elem *elem2, void 
    be turned on. */
 void
 timer_sleep (int64_t ticks) 
-{
-  // printf("timer_sleep start...\n");
-  // 
-
-  // ASSERT (intr_get_level () == INTR_ON);
-  // // while (timer_elapsed (start) < ticks) 
-  // //   thread_yield ();
-  // thread_sleep(start + ticks);
-  // printf("timer_sleep end...\n");
-
-  
+{  
   struct thread *cur = thread_current ();
   int64_t start = timer_ticks ();
-  enum intr_level old_level;
 
   ASSERT (intr_get_level () == INTR_ON);
   ASSERT (!intr_context ());
-  ASSERT (cur->status == THREAD_RUNNING);
 
-  old_level = intr_disable ();
-
+  intr_disable ();
   cur->wake_up_ticks = start + ticks;
 
   list_insert_ordered (&block_list, &cur->elem, comparator_wake_up_tick, NULL);
   
   thread_block ();
-  intr_set_level (old_level);
+  intr_enable ();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -217,20 +204,21 @@ void
 timer_wake_up (int64_t ticks)
 {
   struct list_elem *cur_elem;
-  struct thread *t;
+  struct thread *cur_thread;
 
   while(!list_empty (&block_list))
   {
     cur_elem = list_front (&block_list);
-    t = list_entry (cur_elem, struct thread, elem);
+    cur_thread = list_entry (cur_elem, struct thread, elem);
 
-    if(t->wake_up_ticks > ticks)
+    if(cur_thread->wake_up_ticks > ticks)
     {
       break;
     }
-    else{
-      list_remove (cur_elem);
-      thread_unblock(t);
+    else
+    {
+      list_pop_front (&block_list);
+      thread_unblock(cur_thread);
     }
   }
 }
