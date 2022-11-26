@@ -30,9 +30,6 @@ static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
-/* Store all blocked threads until time is up. */
-static struct list block_list;
-
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
 void
@@ -41,7 +38,7 @@ timer_init (void)
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 
-  list_init (&block_list);
+  // list_init (&block_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -89,36 +86,18 @@ timer_elapsed (int64_t then)
   return timer_ticks () - then;
 }
 
-static bool
-comparator_wake_up_tick (struct list_elem *elem1, struct list_elem *elem2, void *aux)
-{
-  struct thread *t1 = list_entry (elem1, struct thread, elem);
-  struct thread *t2 = list_entry (elem2, struct thread, elem);
-
-  if(t1->wake_up_ticks < t2->wake_up_ticks)
-    return true;
-
-  return false;
-}
-
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void
 timer_sleep (int64_t ticks) 
 {  
-  struct thread *cur = thread_current ();
+  
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
   ASSERT (!intr_context ());
 
-  intr_disable ();
-  cur->wake_up_ticks = start + ticks;
-
-  list_insert_ordered (&block_list, &cur->elem, comparator_wake_up_tick, NULL);
-  
-  thread_block ();
-  intr_enable ();
+  thread_sleep (start + ticks);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -197,30 +176,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
 
-  timer_wake_up (timer_ticks ());
-}
-
-void 
-timer_wake_up (int64_t ticks)
-{
-  struct list_elem *cur_elem;
-  struct thread *cur_thread;
-
-  while(!list_empty (&block_list))
-  {
-    cur_elem = list_front (&block_list);
-    cur_thread = list_entry (cur_elem, struct thread, elem);
-
-    if(cur_thread->wake_up_ticks > ticks)
-    {
-      break;
-    }
-    else
-    {
-      list_pop_front (&block_list);
-      thread_unblock(cur_thread);
-    }
-  }
+  thread_wake_up (timer_ticks ());
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
