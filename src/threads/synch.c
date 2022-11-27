@@ -222,6 +222,7 @@ lock_acquire (struct lock *lock)
 
     // Nested donation
     if (curr_lock_holder->blocking_lock != NULL) {
+      thread_requesting_lock = curr_lock_holder;
       next_lock = curr_lock_holder->blocking_lock;
       curr_lock_holder = curr_lock_holder->blocking_lock->holder;
     } else {
@@ -297,7 +298,7 @@ lock_release (struct lock *lock)
     int max_priority = 0;
     struct list_elem *e;
     for (e = list_begin (&holder->locks_i_hold); e != list_end (&holder->locks_i_hold); e = list_next (e)) {
-      struct lock *temp_lock = e;
+      struct lock *temp_lock = list_entry (e, struct lock, lock_elem);
       struct semaphore *sem = &temp_lock->semaphore;
       
       struct thread *t = list_entry (list_front (&sem->waiters), struct thread, elem);

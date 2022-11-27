@@ -444,9 +444,7 @@ void
 thread_set_priority (int new_priority) 
 {
   struct thread *cur = thread_current();
-  cur->priority = new_priority;
-  
-  list_insert_ordered(&ready_list, &cur->elem, ready_comparator_p, NULL);
+  set_priority_given_thread(cur, new_priority, false);
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
@@ -474,8 +472,12 @@ set_priority_given_thread (struct thread *t, int new_priority, bool is_priority_
   if (t->status == THREAD_READY) {
       list_remove (&t->elem);
       list_insert_ordered (&ready_list, &t->elem, ready_comparator_p, NULL);
-  } else if (t->status == THREAD_RUNNING && list_entry (list_begin (&ready_list), struct thread, elem)->priority > t->priority) {
-      thread_yield();
+  } else if (t->status == THREAD_RUNNING) {
+      struct thread *ready_list_max_thread = list_entry (list_begin (&ready_list), struct thread, elem)->priority;
+      if(ready_list_max_thread > t->priority) {
+          thread_yield();
+      }
+      
       // git repo does thread_yield(t)
   }
 
