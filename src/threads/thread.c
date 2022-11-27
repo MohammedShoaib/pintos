@@ -74,8 +74,7 @@ static void init_thread (struct thread *, const char *name, int priority);
 static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
-static bool comparator_wake_up_tick (struct list_elem *elem1, struct list_elem *elem2, void *aux UNUSED)
-static bool ready_comparator_p(struct struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED);
+
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
@@ -92,8 +91,7 @@ static tid_t allocate_tid (void);
 
    It is not safe to call thread_current() until this function
    finishes. */
-void
-thread_init (void) 
+void thread_init (void)
 {
   ASSERT (intr_get_level () == INTR_OFF);
 
@@ -362,8 +360,7 @@ thread_block (void)
   schedule ();
 }
 
-static bool
-ready_comparator_p (struct list_elem *elem1, struct list_elem *elem2, void *aux UNUSED)
+bool ready_comparator_p (const struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED)
 {
     ASSERT (elem1 != NULL);
     ASSERT (elem2 != NULL);
@@ -500,15 +497,14 @@ thread_yield (void)
   intr_set_level (old_level);
 }
 
-static bool
-comparator_wake_up_tick (struct list_elem *elem1, struct list_elem *elem2, void *aux UNUSED)
+bool comparator_wake_up_tick (const struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED)
 {
     ASSERT (elem1 != NULL);
     ASSERT (elem2 != NULL);
   struct thread *t1 = list_entry (elem1, struct thread, elem);
   struct thread *t2 = list_entry (elem2, struct thread, elem);
 
-  return t1->wake_up_ticks < t2->wake_up_ticks
+  return t1->wake_up_ticks < t2->wake_up_ticks;
 }
 
 void

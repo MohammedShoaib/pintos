@@ -141,6 +141,8 @@ const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
+void thread_yield_current (struct thread *);
+
 void thread_sleep (int64_t ticks);
 void thread_wake_up (void); //TODO: should we keep this
 void thread_wakeup_ticks (int64_t ticks);
@@ -151,6 +153,7 @@ void thread_foreach (thread_action_func *, void *);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
+void set_priority_given_thread (struct thread *, int, bool);
 
 void thread_calculate_priority (void);
 void calculate_priority_for_all (void);
@@ -165,7 +168,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-bool ready_comparator_p (struct list_elem *elem1, struct list_elem *elem2, void *aux);
+bool ready_comparator_p(const struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED);
 bool preempt_thread(struct thread *t1, struct thread *t2);
 void set_priority_given_thread (struct thread *t, int new_priority, bool is_priority_donated);
 
