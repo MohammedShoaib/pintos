@@ -66,9 +66,10 @@ sema_down (struct semaphore *sema)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  while (sema->value == 0) 
+  while (sema->value == 0) // do we need a while loop here? already existing code though.
     {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
+      //list_push_back (&sema->waiters, &thread_current ()->elem);
+      list_insert_ordered(&sema->waiters, &thread_current ()->elem, ready_comparator_p, NULL);
       thread_block ();
     }
   sema->value--;
@@ -113,9 +114,15 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-  if (!list_empty (&sema->waiters)) 
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
-                                struct thread, elem));
+  if (!list_empty (&sema->waiters)) {
+    struct thread *t = list_entry (list_pop_front (&sema->waiters), struct thread, elem);
+    thread_unblock(t);
+    if(preempt_thread(t, thread_current())) {
+      thread_yield();
+    }
+  }
+    
+
   sema->value++;
   intr_set_level (old_level);
 }
@@ -196,8 +203,43 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  enum intr_level old_level;
+  old_level = intr_disable();
+
+  struct thread *curr_thread = thread_current(); //TODO: why do we need this and below line?
+  struct thread *thread_requesting_lock = thread_current(); 
+  struct thread *curr_lock_holder = lock->holder; //TODO: ensure we are storing pointers only and not duplicating entire thread data
+
+  struct lock *next_lock = lock;
+
+  if(curr_lock_holder != NULL) {
+    curr_thread->blocking_lock = lock;
+  }
+
+  while(curr_lock_holder != NULL && curr_lock_holder->priority < thread_requesting_lock->priority) { //TODO: should we limit this while loop depth to 8?
+    // Priority Donation
+    set_priority_given_thread(curr_lock_holder, thread_requesting_lock->priority, true);
+
+    // Nested donation
+    if (curr_lock_holder->blocking_lock != NULL) {
+      next_lock = curr_lock_holder->blocking_lock;
+      curr_lock_holder = curr_lock_holder->blocking_lock->holder;
+    } else {
+      break;
+    }
+  }
+
+  //TODO: in the case where current thread's priority is lower than highest priority thread present in lock.semaphore.waiters then shouldn't we add current thread to this list?
+
   sema_down (&lock->semaphore);
-  lock->holder = thread_current ();
+
+  curr_thread->blocking_lock = NULL;
+  struct list *thread_locks = &curr_thread->locks_i_hold;
+  list_push_back(&thread_locks, &lock->lock_elem);
+
+  lock->holder = curr_thread;
+
+  intr_set_level (old_level);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -231,8 +273,49 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
+  enum intr_level old_level;
+  old_level = intr_disable ();
+
+  struct thread *holder = lock->holder;
   lock->holder = NULL;
+
+  // give lock to first guy in the waiting list of this lock.
+  // remove it from waiter. -> done in sema_up
   sema_up (&lock->semaphore);
+
+  struct thread *curr_thread = thread_current();
+  if (list_empty (&curr_thread->locks_i_hold)){
+      curr_thread->p_donated = false;
+      thread_set_priority (curr_thread->original_priority);
+  } else {
+    // Handles multiple donation case.
+    
+    // remove lock from threads list of locks, not sure if this works.
+    list_remove(&lock->lock_elem);
+
+    // for all locks held by T1
+    // get max priority from all lock.waiter
+    //TODO: split the below code of getting max priority into a separate function
+    int max_priority = 0;
+    struct list_elem *e;
+    for (e = list_begin (&holder->locks_i_hold); e != list_end (&holder->locks_i_hold); e = list_next (e)) {
+      struct lock *temp_lock = e;
+      struct semaphore *sem = &temp_lock->semaphore;
+      
+      struct thread *t = list_entry (list_front (&sem->waiters), struct thread, elem);
+      int temp_priority = t->priority; //TODO: Is priority always assigned to a non zero value for every thread?
+      if(temp_priority > max_priority) {
+          max_priority = temp_priority;
+      }
+    }
+
+    if(max_priority == 0) {
+      thread_set_priority(curr_thread->original_priority);
+    } else {
+      thread_given_set_priority (curr_thread, max_priority, true);
+    }
+  }
+  intr_set_level (old_level);
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -245,7 +328,7 @@ lock_held_by_current_thread (const struct lock *lock)
 
   return lock->holder == thread_current ();
 }
-
+
 /* One semaphore in a list. */
 struct semaphore_elem 
   {

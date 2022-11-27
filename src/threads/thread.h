@@ -24,6 +24,14 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+
+/* Nice value boundary */
+#define NICE_MIN -20
+#define NICE_DEFAULT 0
+#define NICE_MAX 20
+/* recent_cpu in the beginning */
+#define RECENT_CPU_BEGIN 0
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -100,8 +108,11 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-
-    int64_t wake_up;                    /* Local wake up time for thread*/
+    int64_t wake_up_ticks;              /* Local wake up time for thread*/
+    bool p_donated;
+    int original_priority;
+    struct list locks_i_hold; // A, B, C
+    struct lock *blocking_lock;
   };
 
 /* If false (default), use round-robin scheduler.
@@ -128,6 +139,8 @@ const char *thread_name (void);
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
 void thread_sleep (int64_t ticks);
+void thread_wake_up (void); //TODO: should we keep this
+void thread_wake_up (int64_t ticks);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);
@@ -136,9 +149,21 @@ void thread_foreach (thread_action_func *, void *);
 int thread_get_priority (void);
 void thread_set_priority (int);
 
+void thread_calculate_priority (void);
+void calculate_priority_for_all (void);
+void calculate_priority (struct thread *, void *aux);
+void thread_calculate_recent_cpu (void);
+void calculate_recent_cpu_for_all (void);
+void calculate_recent_cpu (struct thread *, void *aux);
+void calculate_load_avg (void);
+
 int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+bool ready_comparator_p (struct list_elem *elem1, struct list_elem *elem2, void *aux);
+bool preempt_thread(struct thread *t1, struct thread *t2);
+void set_priority_given_thread (struct thread *t, int new_priority, bool is_priority_donated);
 
 #endif /* threads/thread.h */
