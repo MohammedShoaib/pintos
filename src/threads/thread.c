@@ -25,6 +25,8 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+static int load_avg;
+
 /* Store all blocked threads until time is up. */
 static struct list block_list;
 
@@ -72,6 +74,8 @@ static void init_thread (struct thread *, const char *name, int priority);
 static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
+static bool comparator_wake_up_tick (struct list_elem *elem1, struct list_elem *elem2, void *aux UNUSED)
+static bool ready_comparator_p(struct struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
@@ -103,6 +107,7 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+  load_avg = 0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -265,13 +270,13 @@ calculate_recent_cpu (struct thread *cur, void *aux UNUSED)
  *  It is also recalculated once every fourth clock tick, for every thread.
  */
 void
-calculate_advanced_priority_for_all (void)
+calculate_priority_for_all (void)
 {
-    thread_foreach (calculate_advanced_priority, NULL);
+    thread_foreach (calculate_priority, NULL);
     /* resort ready_list */
     if (!list_empty (&ready_list))
     {
-        list_sort (&ready_list, priority_more, NULL);
+        list_sort (&ready_list, ready_comparator_p, NULL);
     }
 }
 
@@ -357,13 +362,14 @@ thread_block (void)
   schedule ();
 }
 
-bool
-ready_comparator_p (struct list_elem *elem1, struct list_elem *elem2, void *aux)
+static bool
+ready_comparator_p (struct list_elem *elem1, struct list_elem *elem2, void *aux UNUSED)
 {
-  struct thread *t1 = list_entry (elem1, struct thread, elem);
-  struct thread *t2 = list_entry (elem2, struct thread, elem);
-
-  return preempt_thread(t1, t2);
+    ASSERT (elem1 != NULL);
+    ASSERT (elem2 != NULL);
+    struct thread *t1 = list_entry (elem1, struct thread, elem);
+    struct thread *t2 = list_entry (elem2, struct thread, elem);
+    return t1->priority > t2->priority;
 }
 
 bool
@@ -453,16 +459,25 @@ thread_exit (void)
   NOT_REACHED ();
 }
 
-static bool
-priority_comparator (const struct list_elem *a_, const struct list_elem *b_,
-               void *aux UNUSED)
+void
+thread_yield_current (struct thread *cur)
 {
-    ASSERT (a_ != NULL);
-    ASSERT (b_ != NULL);
-    const struct thread *a = list_entry (a_, struct thread, elem);
-    const struct thread *b = list_entry (b_, struct thread, elem);
+    ASSERT (is_thread (cur));
+    enum intr_level old_level;
 
-    return a->priority > b->priority;
+    ASSERT (!intr_context ());
+
+    old_level = intr_disable ();
+    if (cur != idle_thread) {
+        /* For PRIORITY propose
+         * Change the ready_list to an ordered list in order to make sure that
+         * the thread with highest priority in the ready list get run first
+         */
+        list_insert_ordered(&ready_list, &cur->elem, ready_comparator_p, NULL);
+    }
+    cur->status = THREAD_READY;
+    schedule ();
+    intr_set_level (old_level);
 }
 
 /* Yields the CPU.  The current thread is not put to sleep and
@@ -486,27 +501,14 @@ thread_yield (void)
 }
 
 static bool
-comparator_wake_up_tick (struct list_elem *elem1, struct list_elem *elem2, void *aux)
+comparator_wake_up_tick (struct list_elem *elem1, struct list_elem *elem2, void *aux UNUSED)
 {
+    ASSERT (elem1 != NULL);
+    ASSERT (elem2 != NULL);
   struct thread *t1 = list_entry (elem1, struct thread, elem);
   struct thread *t2 = list_entry (elem2, struct thread, elem);
 
-  if(t1->wake_up_ticks < t2->wake_up_ticks)
-    return true;
-
-  return false;
-}
-
-static bool
-priority_more (const struct list_elem *a_, const struct list_elem *b_,
-               void *aux UNUSED)
-{
-    ASSERT (a_ != NULL);
-    ASSERT (b_ != NULL);
-    const struct thread *a = list_entry (a_, struct thread, elem);
-    const struct thread *b = list_entry (b_, struct thread, elem);
-
-    return a->priority > b->priority;
+  return t1->wake_up_ticks < t2->wake_up_ticks
 }
 
 void
@@ -623,7 +625,7 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice)
 {
-    ASSERT (new_nice >= NICE_MIN && new_nice <= NICE_MAX);
+    ASSERT (nice >= NICE_MIN && nice <= NICE_MAX);
     struct thread *cur;
 
     cur = thread_current ();
@@ -638,7 +640,7 @@ thread_set_nice (int nice)
             enum intr_level old_level;
             old_level = intr_disable ();
             list_remove (&cur->elem);
-            list_insert_ordered (&ready_list, &cur->elem, priority_more, NULL);
+            list_insert_ordered (&ready_list, &cur->elem, ready_comparator_p, NULL);
             intr_set_level (old_level);
         }
         else if (cur->status == THREAD_RUNNING &&
