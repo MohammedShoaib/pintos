@@ -134,44 +134,8 @@ pintos_init (void)
     run_actions (argv);
   } else {
     // TODO: no command line passed to kernel. Run interactively 
-
-    input_init();
-
-    uint8_t temp = 0;
-    char str[80];
-    int count = 0;
-    while(1){
-	printf("ICS143A> ");
-	count = 0;
-	str[count] = '\0';
-
-    	while(1){
-		temp = input_getc();
-		
-		if(temp == 10)
-	    		break;
-
-		printf("%c", (char) temp);
-
-		str[count] = (char) temp;
-		count++;
-    	}
-
-    	str[count] = '\0';
-    	
-	if(strcmp(str, "exit") == 0){
-        	printf("\nExiting...\n");
-		break;
-    	}
-	else if(strcmp(str, "whoami") == 0){
-		printf("\nIniyavan Sathiamurthi");
-	}
-    	else{
-        	printf("\nInvalid command...");
-    	}
-	printf("\n");
-    }
   }
+
   /* Finish up. */
   shutdown ();
   thread_exit ();
