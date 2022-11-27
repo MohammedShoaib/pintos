@@ -362,7 +362,7 @@ bool ready_comparator_p (const struct list_elem *elem1, const struct list_elem *
 bool
 preempt_thread(struct thread *t1, struct thread *t2)
 {
-  if(t1->priority > t2->priority) // shouldn't this be greater than?
+  if(t1->priority > t2->priority)
     return true;
 
   return false;
@@ -386,6 +386,7 @@ thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
 
+  //TODO: should aux be 0
   //list_push_back (&ready_list, &t->elem);
   list_insert_ordered(&ready_list, &t->elem, ready_comparator_p, NULL);
   t->status = THREAD_READY;
@@ -456,10 +457,6 @@ thread_yield_current (struct thread *cur)
 
     old_level = intr_disable ();
     if (cur != idle_thread) {
-        /* For PRIORITY propose
-         * Change the ready_list to an ordered list in order to make sure that
-         * the thread with highest priority in the ready list get run first
-         */
         list_insert_ordered(&ready_list, &cur->elem, ready_comparator_p, NULL);
     }
     cur->status = THREAD_READY;
@@ -479,7 +476,6 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) {
-    // list_push_back (&ready_list, &cur->elem);
     list_insert_ordered(&ready_list, &cur->elem, ready_comparator_p, NULL);
   }
   cur->status = THREAD_READY;
@@ -513,7 +509,6 @@ thread_sleep (int64_t ticks)
   cur->wake_up_ticks = ticks;
 
   list_insert_ordered (&block_list, &cur->elem, comparator_wake_up_tick, NULL);
-
   thread_block ();
   intr_enable ();
 }
@@ -564,7 +559,7 @@ thread_set_priority (int new_priority)
 {
   struct thread *cur = thread_current();
   cur->priority = new_priority;
-  //TODO: shouldn't current thread be scheduled if it's priority is highest? compare with current thread and yield current thread?
+  list_remove (&cur->elem);
   list_insert_ordered(&ready_list, &cur->elem, ready_comparator_p, NULL); //TODO: delete and add
 }
 

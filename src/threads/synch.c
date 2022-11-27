@@ -117,13 +117,12 @@ sema_up (struct semaphore *sema)
   if (!list_empty (&sema->waiters)) {
     struct thread *t = list_entry (list_pop_front (&sema->waiters), struct thread, elem);
     thread_unblock(t);
-    if(preempt_thread(t, thread_current())) {
-      thread_yield();
-    }
   }
-    
-
+  //TODO: when to yield, after incrementing sema or before?
   sema->value++;
+  if(preempt_thread(t, thread_current())) {
+        thread_yield();
+    }
   intr_set_level (old_level);
 }
 
@@ -202,7 +201,7 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
-
+  //TODO: do we need to disable interrupts
   enum intr_level old_level;
   old_level = intr_disable();
 
@@ -325,7 +324,7 @@ lock_held_by_current_thread (const struct lock *lock)
 
   return lock->holder == thread_current ();
 }
-
+
 /* One semaphore in a list. */
 struct semaphore_elem 
   {
@@ -375,7 +374,7 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-  list_push_back (&cond->waiters, &waiter.elem);
+  list_insert_ordered (&cond->waiters, &waiter.elem, ready_comparator_p, NULL);
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
