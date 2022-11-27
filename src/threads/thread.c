@@ -74,7 +74,7 @@ static void init_thread (struct thread *, const char *name, int priority);
 static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
-bool comparator_wake_up_tick (const struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED);
+static bool comparator_wake_up_tick (const struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED);
 
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
@@ -210,27 +210,16 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
-    if (thread_mlfqs)
-    {
-        calculate_recent_cpu (t, NULL);
-        calculate_priority (t, NULL);
-        thread_calculate_recent_cpu ();
-        thread_calculate_priority ();
-    }
+  if (thread_mlfqs)
+  {
+      calculate_recent_cpu (t, NULL);
+      calculate_priority (t, NULL);
+      thread_calculate_recent_cpu ();
+      thread_calculate_priority ();
+  }
 
-    if (t->priority > thread_current ()-> priority)
-    {
-        thread_yield_current (thread_current());
-    }
-
-/**
- * @brief doing this after thread_unblock() because the function
- * adds it to ready queue and if its priority is higher than current
- * make the current thread yield.
- *
- */
-  if(t->priority > thread_current()->priority) {
-    thread_yield();
+  if (t->priority > thread_current()->priority) {
+      thread_yield();
   }
 
   return tid;
@@ -498,10 +487,10 @@ thread_yield (void)
   intr_set_level (old_level);
 }
 
-bool comparator_wake_up_tick (const struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED)
+static bool comparator_wake_up_tick (const struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED)
 {
-    ASSERT (elem1 != NULL);
-    ASSERT (elem2 != NULL);
+//    ASSERT (elem1 != NULL);
+//    ASSERT (elem2 != NULL);
   struct thread *t1 = list_entry (elem1, struct thread, elem);
   struct thread *t2 = list_entry (elem2, struct thread, elem);
 
@@ -534,7 +523,7 @@ thread_wakeup_ticks (int64_t ticks)
 {
   struct list_elem *cur_elem;
   struct thread *cur_thread;
-  //TODO: Ini do we need to disable interrupts
+
   while(!list_empty (&block_list))
   {
     cur_elem = list_front (&block_list);
@@ -863,7 +852,7 @@ thread_schedule_tail (struct thread *prev)
    It's not safe to call printf() until thread_schedule_tail()
    has completed. */
 static void
-schedule (void) // TODO: ensure we are covering all cases from where schedule should be called
+schedule (void)
 {
   struct thread *cur = running_thread ();
   struct thread *next = next_thread_to_run ();
