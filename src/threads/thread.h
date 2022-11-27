@@ -113,7 +113,10 @@ struct thread
     int original_priority;
     struct list locks_i_hold; // A, B, C
     struct lock *blocking_lock;
-  };
+
+    int nice;
+    int recent_cpu;
+};
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -140,7 +143,7 @@ void thread_exit (void) NO_RETURN;
 void thread_yield (void);
 void thread_sleep (int64_t ticks);
 void thread_wake_up (void); //TODO: should we keep this
-void thread_wake_up (int64_t ticks);
+void thread_wakeup_ticks (int64_t ticks);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);

@@ -225,7 +225,6 @@ thread_create (const char *name, int priority,
  * make the current thread yield.
  *
  */
- //TODO: how do we handle this?
   if(t->priority > thread_current()->priority) {
     thread_yield();
   }
@@ -498,6 +497,18 @@ comparator_wake_up_tick (struct list_elem *elem1, struct list_elem *elem2, void 
   return false;
 }
 
+static bool
+priority_more (const struct list_elem *a_, const struct list_elem *b_,
+               void *aux UNUSED)
+{
+    ASSERT (a_ != NULL);
+    ASSERT (b_ != NULL);
+    const struct thread *a = list_entry (a_, struct thread, elem);
+    const struct thread *b = list_entry (b_, struct thread, elem);
+
+    return a->priority > b->priority;
+}
+
 void
 thread_sleep (int64_t ticks)
 {
@@ -520,7 +531,7 @@ thread_sleep (int64_t ticks)
 }
 
 void
-thread_wake_up (int64_t ticks)
+thread_wakeup_ticks (int64_t ticks)
 {
   struct list_elem *cur_elem;
   struct thread *cur_thread;
@@ -565,8 +576,8 @@ thread_set_priority (int new_priority)
 {
   struct thread *cur = thread_current();
   cur->priority = new_priority;
-  //TODO: shouldn't current thread be scheduled if it's priority is highest?
-  list_insert_ordered(&ready_list, &cur->elem, ready_comparator_p, NULL);
+  //TODO: shouldn't current thread be scheduled if it's priority is highest? compare with current thread and yield current thread?
+  list_insert_ordered(&ready_list, &cur->elem, ready_comparator_p, NULL); //TODO: delete and add
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
@@ -595,7 +606,7 @@ set_priority_given_thread (struct thread *t, int new_priority, bool is_priority_
       list_remove (&t->elem);
       list_insert_ordered (&ready_list, &t->elem, ready_comparator_p, NULL);
   } else if (t->status == THREAD_RUNNING && list_entry (list_begin (&ready_list), struct thread, elem)->priority > t->priority) {
-      thread_yield(); //TODO: we are disabling interrupts in yield as well, is it fine to disable interrupts twice? Else should we disable interrupts before every call to yield? Or let yield disable interrupt?
+      thread_yield();
       // git repo does thread_yield(t)
   }
 
@@ -609,19 +620,40 @@ thread_get_priority (void)
   return thread_current ()->priority;
 }
 
-/* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED) 
+thread_set_nice (int nice)
 {
-  /* Not yet implemented. */
+    ASSERT (new_nice >= NICE_MIN && new_nice <= NICE_MAX);
+    struct thread *cur;
+
+    cur = thread_current ();
+    cur->nice = nice;
+
+    thread_calculate_priority ();
+
+    if (cur != idle_thread)
+    {
+        if (cur->status == THREAD_READY)
+        {
+            enum intr_level old_level;
+            old_level = intr_disable ();
+            list_remove (&cur->elem);
+            list_insert_ordered (&ready_list, &cur->elem, priority_more, NULL);
+            intr_set_level (old_level);
+        }
+        else if (cur->status == THREAD_RUNNING &&
+                 list_entry (list_begin (&ready_list), struct thread, elem)->priority > cur->priority)
+        {
+            thread_yield_current (cur);
+        }
+    }
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current ()->nice;
 }
 
 /* Returns 100 times the system load average. */
@@ -629,7 +661,7 @@ int
 thread_get_load_avg (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  return CONVERT_TO_INT_NEAREST (MULT_INT (load_avg, 100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -637,7 +669,8 @@ int
 thread_get_recent_cpu (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  return CONVERT_TO_INT_NEAREST (MULT_INT (thread_current ()->recent_cpu,
+                                           100));
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -735,15 +768,8 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
-  //TODO: handle integration between priority and mlfqs
     if (thread_mlfqs)
     {
-        /* The initial thread starts with a nice value of zero. Other threads
-         * start with a nice value inherited from their parent thread
-         */
-        /* The initial value of recent_cpu is 0 in the first thread created,
-         * or the parent's value in other new threads.
-         */
         if (t == initial_thread)
         {
             t->nice = NICE_DEFAULT;

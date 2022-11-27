@@ -206,9 +206,9 @@ lock_acquire (struct lock *lock)
   enum intr_level old_level;
   old_level = intr_disable();
 
-  struct thread *curr_thread = thread_current(); //TODO: why do we need this and below line?
+  struct thread *curr_thread = thread_current();
   struct thread *thread_requesting_lock = thread_current(); 
-  struct thread *curr_lock_holder = lock->holder; //TODO: ensure we are storing pointers only and not duplicating entire thread data
+  struct thread *curr_lock_holder = lock->holder;
 
   struct lock *next_lock = lock;
 
@@ -219,9 +219,8 @@ lock_acquire (struct lock *lock)
   while(curr_lock_holder != NULL && curr_lock_holder->priority < thread_requesting_lock->priority) { //TODO: should we limit this while loop depth to 8?
     // Priority Donation
     set_priority_given_thread(curr_lock_holder, thread_requesting_lock->priority, true);
-
     // Nested donation
-    if (curr_lock_holder->blocking_lock != NULL) {
+    if (curr_lock_holder->blocking_lock != NULL) { //TODO: should we store all blocked locks in a list or only one lock
       next_lock = curr_lock_holder->blocking_lock;
       curr_lock_holder = curr_lock_holder->blocking_lock->holder;
     } else {
@@ -229,16 +228,12 @@ lock_acquire (struct lock *lock)
     }
   }
 
-  //TODO: in the case where current thread's priority is lower than highest priority thread present in lock.semaphore.waiters then shouldn't we add current thread to this list?
-
   sema_down (&lock->semaphore);
-
   curr_thread->blocking_lock = NULL;
   struct list *thread_locks = &curr_thread->locks_i_hold;
   list_push_back(&thread_locks, &lock->lock_elem);
 
   lock->holder = curr_thread;
-
   intr_set_level (old_level);
 }
 
@@ -303,7 +298,7 @@ lock_release (struct lock *lock)
       struct semaphore *sem = &temp_lock->semaphore;
       
       struct thread *t = list_entry (list_front (&sem->waiters), struct thread, elem);
-      int temp_priority = t->priority; //TODO: Is priority always assigned to a non zero value for every thread?
+      int temp_priority = t->priority;
       if(temp_priority > max_priority) {
           max_priority = temp_priority;
       }

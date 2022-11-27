@@ -178,7 +178,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
 
-  thread_wake_up (timer_ticks ());
+    thread_wakeup_ticks (timer_ticks ());
   if (thread_mlfqs)
     {
         struct thread *cur;
