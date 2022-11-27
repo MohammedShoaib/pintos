@@ -100,9 +100,7 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-
-    int64_t wake_up;                    /* Local wake up time for thread*/
-
+    int64_t wake_up_ticks;              /* Local wake up time for thread*/
     bool p_donated;
     int original_priority;
     struct list locks_i_hold; // A, B, C
@@ -133,7 +131,8 @@ const char *thread_name (void);
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
 void thread_sleep (int64_t ticks);
-void thread_wake_up (void);
+void thread_wake_up (void); //TODO: should we keep this
+void thread_wake_up (int64_t ticks);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);

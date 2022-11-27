@@ -24,12 +24,12 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+/* Store all blocked threads until time is up. */
+static struct list block_list;
+
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
-
-/* List of blocked threads. */
-static struct list blocked_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -95,7 +95,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
-  list_init (&blocked_list);
+  list_init (&block_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -141,8 +141,6 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
-
-  // thread_wake_up();
 }
 
 /* Prints thread statistics. */
@@ -172,7 +170,6 @@ tid_t
 thread_create (const char *name, int priority,
                thread_func *function, void *aux) 
 {
-  printf("Thread: %s Priority: %d\n", name, priority);
   struct thread *t;
   struct kernel_thread_frame *kf;
   struct switch_entry_frame *ef;
@@ -212,7 +209,7 @@ thread_create (const char *name, int priority,
  * @brief doing this after thread_unblock() because the function
  * adds it to ready queue and if its priority is higher than current
  * make the current thread yield.
- * 
+ *
  */
   if(t->priority > thread_current()->priority) {
     thread_yield();
@@ -247,7 +244,7 @@ ready_comparator_p (struct list_elem *elem1, struct list_elem *elem2, void *aux)
 }
 
 bool
-preempt_thread(struct thread *t1, struct thread *t2) 
+preempt_thread(struct thread *t1, struct thread *t2)
 {
   if(t1->priority > t2->priority) // shouldn't this be greater than?
     return true;
@@ -272,11 +269,9 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  
+
   //list_push_back (&ready_list, &t->elem);
   list_insert_ordered(&ready_list, &t->elem, ready_comparator_p, NULL);
-
-
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -355,13 +350,13 @@ thread_yield (void)
   intr_set_level (old_level);
 }
 
-bool
-compare (struct list_elem *elem1, struct list_elem *elem2, void *aux)
+static bool
+comparator_wake_up_tick (struct list_elem *elem1, struct list_elem *elem2, void *aux)
 {
   struct thread *t1 = list_entry (elem1, struct thread, elem);
   struct thread *t2 = list_entry (elem2, struct thread, elem);
 
-  if(t1->wake_up < t2->wake_up)
+  if(t1->wake_up_ticks < t2->wake_up_ticks)
     return true;
 
   return false;
@@ -370,56 +365,45 @@ compare (struct list_elem *elem1, struct list_elem *elem2, void *aux)
 void
 thread_sleep (int64_t ticks)
 {
-  printf("thread_sleep ...\n");
   struct thread *cur = thread_current ();
-  enum intr_level old_level;
 
-  ASSERT (!intr_context ());
+  //printf("thread_sleep ...\n");
+    //  struct thread *cur = thread_current ();
+    //  enum intr_level old_level;
+    //
+    //  ASSERT (!intr_context ());
+    //
+    //  old_level = intr_disable (); //TODO: do we need above commented lines
+  intr_disable ();
+  cur->wake_up_ticks = ticks;
 
-  old_level = intr_disable ();
-  if (cur != idle_thread)
-  {
-    list_insert_ordered(&blocked_list, &cur->elem, compare, NULL);
-    cur->wake_up = ticks;
-  }
+  list_insert_ordered (&block_list, &cur->elem, comparator_wake_up_tick, NULL);
 
   thread_block ();
-  intr_set_level (old_level);
+  intr_enable ();
 }
 
-void thread_wake_up (void) {
-  printf("thread_wake_up ...\n");
-  // struct thread *cur = thread_current ();
-  enum intr_level old_level;
-
-  // ASSERT (!intr_context);
-
-  old_level = intr_disable ();
-
+void
+thread_wake_up (int64_t ticks)
+{
   struct list_elem *cur_elem;
-  struct list_elem *next_elem;
-  struct thread *t;
-
-  if(!list_empty (&blocked_list))
-    cur_elem = list_begin (&blocked_list);
-
-  while(!list_empty(&blocked_list))
+  struct thread *cur_thread;
+  //TODO: Ini do we need to disable interrupts
+  while(!list_empty (&block_list))
   {
-    next_elem = list_next (&blocked_list);
-    t = list_entry (cur_elem, struct thread, elem);
-    
-    if(t->wake_up > timer_ticks ())
-      break;
+    cur_elem = list_front (&block_list);
+    cur_thread = list_entry (cur_elem, struct thread, elem);
 
-    thread_unblock (t);
-    // t->status = THREAD_READY;
-    // list_push_back (&ready_list, &t->elem);
-    
-    list_pop_front (&blocked_list);
-    cur_elem = next_elem;
+    if(cur_thread->wake_up_ticks > ticks)
+    {
+      break;
+    }
+    else
+    {
+      list_pop_front (&block_list);
+      thread_unblock(cur_thread);
+    }
   }
-  
-  intr_set_level (old_level);
 }
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
@@ -451,7 +435,7 @@ thread_set_priority (int new_priority)
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
-set_priority_given_thread (struct thread *t, int new_priority, bool is_priority_donated) 
+set_priority_given_thread (struct thread *t, int new_priority, bool is_priority_donated)
 {
   enum intr_level old_level;
   old_level = intr_disable(); //TODO: why do we need to disable interrupt here?
