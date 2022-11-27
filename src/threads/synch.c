@@ -295,7 +295,6 @@ lock_release (struct lock *lock)
           struct list_elem *e;
           for (e = list_begin (&holder->locks_i_hold); e != list_end (&holder->locks_i_hold); e = list_next (e)) {
               struct lock *temp_lock = list_entry (e, struct lock, lock_elem);
-              struct *lock temp_lock = e;
               struct semaphore *sem = temp_lock->semaphore;
 
               struct thread *t = list_entry (list_front (&sem->waiters), struct thread, elem);
