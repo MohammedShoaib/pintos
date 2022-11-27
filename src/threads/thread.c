@@ -227,6 +227,15 @@ thread_block (void)
   schedule ();
 }
 
+bool ready_comparator_p (const struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED)
+{
+    ASSERT (elem1 != NULL);
+    ASSERT (elem2 != NULL);
+    struct thread *t1 = list_entry (elem1, struct thread, elem);
+    struct thread *t2 = list_entry (elem2, struct thread, elem);
+    return t1->priority > t2->priority;
+}
+
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
    make the running thread ready.)
@@ -244,7 +253,8 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  // list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list, &t->elem, ready_comparator_p, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -343,11 +353,11 @@ thread_sleep (int64_t ticks)
 
   list_insert_ordered (&block_list, &cur->elem, comparator_wake_up_tick, NULL);
   
-  for (struct list_elem *cur_elem = list_begin (&block_list); cur_elem != list_end (&block_list); cur_elem = list_next (cur_elem))
-  {
-    struct thread *cur = list_entry (cur_elem, struct thread, elem);
-    printf("%d %s\n", cur->tid, cur->name);
-  }
+  // for (struct list_elem *cur_elem = list_begin (&block_list); cur_elem != list_end (&block_list); cur_elem = list_next (cur_elem))
+  // {
+  //   struct thread *cur = list_entry (cur_elem, struct thread, elem);
+  //   printf("%d %s\n", cur->tid, cur->name);
+  // }
 
   thread_block ();
   intr_enable ();
