@@ -343,6 +343,12 @@ thread_sleep (int64_t ticks)
 
   list_insert_ordered (&block_list, &cur->elem, comparator_wake_up_tick, NULL);
   
+  for (struct list_elem *cur_elem = list_begin (&block_list); cur_elem != list_end (&block_list); cur_elem = list_next (cur_elem))
+  {
+    struct thread *cur = list_entry (cur_elem, struct thread, elem);
+    printf("%d %s\n", cur->tid, cur->name);
+  }
+
   thread_block ();
   intr_enable ();
 }
