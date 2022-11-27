@@ -170,6 +170,5 @@ int thread_get_load_avg (void);
 
 bool ready_comparator_p(const struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED);
 bool preempt_thread(struct thread *t1, struct thread *t2);
-void set_priority_given_thread (struct thread *t, int new_priority, bool is_priority_donated);
 
 #endif /* threads/thread.h */

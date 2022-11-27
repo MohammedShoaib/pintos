@@ -74,6 +74,7 @@ static void init_thread (struct thread *, const char *name, int priority);
 static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
+bool comparator_wake_up_tick (const struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED);
 
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);

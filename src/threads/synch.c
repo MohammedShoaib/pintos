@@ -210,7 +210,7 @@ lock_acquire (struct lock *lock)
   struct thread *thread_requesting_lock = thread_current(); 
   struct thread *curr_lock_holder = lock->holder;
 
-  struct lock *next_lock = lock;
+  struct lock *next_lock = lock; //TODO: where are we using this?
 
   if(curr_lock_holder != NULL) {
     curr_thread->blocking_lock = lock;
@@ -230,7 +230,7 @@ lock_acquire (struct lock *lock)
 
   sema_down (&lock->semaphore);
   curr_thread->blocking_lock = NULL;
-  struct list *thread_locks = &curr_thread->locks_i_hold;
+  struct list thread_locks = curr_thread->locks_i_hold;
   list_push_back(&thread_locks, &lock->lock_elem);
 
   lock->holder = curr_thread;
@@ -277,39 +277,41 @@ lock_release (struct lock *lock)
   // give lock to first guy in the waiting list of this lock.
   // remove it from waiter. -> done in sema_up
   sema_up (&lock->semaphore);
+  if (!thread_mlfqs) {
+      struct thread *curr_thread = thread_current();
+      if (list_empty (&curr_thread->locks_i_hold)){
+          curr_thread->p_donated = false;
+          thread_set_priority (curr_thread->original_priority);
+      } else {
+          // Handles multiple donation case.
 
-  struct thread *curr_thread = thread_current();
-  if (list_empty (&curr_thread->locks_i_hold)){
-      curr_thread->p_donated = false;
-      thread_set_priority (curr_thread->original_priority);
-  } else {
-    // Handles multiple donation case.
-    
-    // remove lock from threads list of locks, not sure if this works.
-    list_remove(&lock->lock_elem);
+          // remove lock from threads list of locks, not sure if this works.
+          list_remove(&lock->lock_elem);
 
-    // for all locks held by T1
-    // get max priority from all lock.waiter
-    //TODO: split the below code of getting max priority into a separate function
-    int max_priority = 0;
-    struct list_elem *e;
-    for (e = list_begin (&holder->locks_i_hold); e != list_end (&holder->locks_i_hold); e = list_next (e)) {
-      struct lock *temp_lock = e;
-      struct semaphore *sem = &temp_lock->semaphore;
-      
-      struct thread *t = list_entry (list_front (&sem->waiters), struct thread, elem);
-      int temp_priority = t->priority;
-      if(temp_priority > max_priority) {
-          max_priority = temp_priority;
+          // for all locks held by T1
+          // get max priority from all lock.waiter
+          //TODO: split the below code of getting max priority into a separate function
+          int max_priority = 0;
+          struct list_elem *e;
+          for (e = list_begin (&holder->locks_i_hold); e != list_end (&holder->locks_i_hold); e = list_next (e)) {
+              struct lock temp_lock = *e; //TODO: review this
+              struct semaphore *sem = &temp_lock->semaphore;
+
+              struct thread *t = list_entry (list_front (&sem->waiters), struct thread, elem);
+              int temp_priority = t->priority;
+              if(temp_priority > max_priority) {
+                  max_priority = temp_priority;
+              }
+          }
+
+          if(max_priority == 0) {
+              thread_set_priority(curr_thread->original_priority);
+          } else {
+              set_priority_given_thread (curr_thread, max_priority, true);
+          }
       }
-    }
-
-    if(max_priority == 0) {
-      thread_set_priority(curr_thread->original_priority);
-    } else {
-      thread_given_set_priority (curr_thread, max_priority, true);
-    }
   }
+
   intr_set_level (old_level);
 }
 
