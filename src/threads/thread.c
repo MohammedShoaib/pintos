@@ -445,7 +445,7 @@ thread_set_priority (int new_priority)
 {
   struct thread *cur = thread_current();
   cur->priority = new_priority;
-  
+  //TODO: shouldn't current thread be scheduled if it's priority is highest?
   list_insert_ordered(&ready_list, &cur->elem, ready_comparator_p, NULL);
 }
 
@@ -454,28 +454,28 @@ void
 set_priority_given_thread (struct thread *t, int new_priority, bool is_priority_donated) 
 {
   enum intr_level old_level;
-  old_level = intr_disable();
+  old_level = intr_disable(); //TODO: why do we need to disable interrupt here?
 
   ASSERT (new_priority >= PRI_MIN && new_priority <= PRI_MAX);
   ASSERT (is_thread (t));
 
    if (!is_priority_donated){
      if (t->p_donated == true && new_priority <= t->priority) {
-       t->original_priority = new_priority;
+       t->original_priority = new_priority; //TODO: what if new_priority < t.original_priority ?
      } else {
           t->priority = new_priority;
-          t->original_priority = new_priority;
+          t->original_priority = new_priority; // TODO: shouldn't original priority by t.priority?
      }
   } else {
-	  t->priority = new_priority;
-    t->p_donated = true;
+       t->priority = new_priority;
+       t->p_donated = true;
   }
 
   if (t->status == THREAD_READY) {
       list_remove (&t->elem);
       list_insert_ordered (&ready_list, &t->elem, ready_comparator_p, NULL);
   } else if (t->status == THREAD_RUNNING && list_entry (list_begin (&ready_list), struct thread, elem)->priority > t->priority) {
-      thread_yield();
+      thread_yield(); //TODO: we are disabling interrupts in yield as well, is it fine to disable interrupts twice? Else should we disable interrupts before every call to yield? Or let yield disable interrupt?
       // git repo does thread_yield(t)
   }
 
@@ -698,7 +698,7 @@ thread_schedule_tail (struct thread *prev)
    It's not safe to call printf() until thread_schedule_tail()
    has completed. */
 static void
-schedule (void) 
+schedule (void) // TODO: ensure we are covering all cases from where schedule should be called
 {
   struct thread *cur = running_thread ();
   struct thread *next = next_thread_to_run ();

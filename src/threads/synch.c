@@ -206,9 +206,9 @@ lock_acquire (struct lock *lock)
   enum intr_level old_level;
   old_level = intr_disable();
 
-  struct thread *curr_thread = thread_current();
+  struct thread *curr_thread = thread_current(); //TODO: why do we need this and below line?
   struct thread *thread_requesting_lock = thread_current(); 
-  struct thread *curr_lock_holder = lock->holder;
+  struct thread *curr_lock_holder = lock->holder; //TODO: ensure we are storing pointers only and not duplicating entire thread data
 
   struct lock *next_lock = lock;
 
@@ -216,7 +216,7 @@ lock_acquire (struct lock *lock)
     curr_thread->blocking_lock = lock;
   }
 
-  while(curr_lock_holder != NULL && curr_lock_holder->priority < thread_requesting_lock->priority) {
+  while(curr_lock_holder != NULL && curr_lock_holder->priority < thread_requesting_lock->priority) { //TODO: should we limit this while loop depth to 8?
     // Priority Donation
     set_priority_given_thread(curr_lock_holder, thread_requesting_lock->priority, true);
 
@@ -228,6 +228,8 @@ lock_acquire (struct lock *lock)
       break;
     }
   }
+
+  //TODO: in the case where current thread's priority is lower than highest priority thread present in lock.semaphore.waiters then shouldn't we add current thread to this list?
 
   sema_down (&lock->semaphore);
 
@@ -293,7 +295,7 @@ lock_release (struct lock *lock)
 
     // for all locks held by T1
     // get max priority from all lock.waiter
-
+    //TODO: split the below code of getting max priority into a separate function
     int max_priority = 0;
     struct list_elem *e;
     for (e = list_begin (&holder->locks_i_hold); e != list_end (&holder->locks_i_hold); e = list_next (e)) {
@@ -301,9 +303,9 @@ lock_release (struct lock *lock)
       struct semaphore *sem = &temp_lock->semaphore;
       
       struct thread *t = list_entry (list_front (&sem->waiters), struct thread, elem);
-      int temp_priority = t->priority;
+      int temp_priority = t->priority; //TODO: Is priority always assigned to a non zero value for every thread?
       if(temp_priority > max_priority) {
-        temp_priority = temp_priority;
+          max_priority = temp_priority;
       }
     }
 
@@ -312,11 +314,8 @@ lock_release (struct lock *lock)
     } else {
       thread_given_set_priority (curr_thread, max_priority, true);
     }
-
   }
-
   intr_set_level (old_level);
-
 }
 
 /* Returns true if the current thread holds LOCK, false
