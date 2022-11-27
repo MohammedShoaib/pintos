@@ -39,8 +39,6 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
-
-  // list_init (&block_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -177,27 +175,26 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
-
-    thread_wakeup_ticks (timer_ticks ());
+  thread_wakeup_ticks (timer_ticks ());
   if (thread_mlfqs)
+  {
+    struct thread *cur;
+    cur = thread_current ();
+    if (cur->status == THREAD_RUNNING)
     {
-        struct thread *cur;
-        cur = thread_current ();
-        if (cur->status == THREAD_RUNNING)
-        {
-            cur->recent_cpu = ADD_INT (cur->recent_cpu, 1);
-        }
-        if (ticks % TIMER_FREQ == 0)
-        {
-            calculate_load_avg ();
-            /* recent_cpu depends on load_avg */
-            calculate_recent_cpu_for_all ();
-        }
-        if (ticks % 4 == 0)
-        {
-            calculate_priority_for_all ();
-        }
+        cur->recent_cpu = ADD_INT (cur->recent_cpu, 1);
     }
+    if (ticks % TIMER_FREQ == 0)
+    {
+        calculate_load_avg ();
+        /* recent_cpu depends on load_avg */
+        calculate_recent_cpu_for_all ();
+    }
+    if (ticks % 4 == 0)
+    {
+        calculate_priority_for_all ();
+    }
+  }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
