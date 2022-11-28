@@ -610,12 +610,6 @@ bool priority_comparator(struct list_elem *l1, struct list_elem *l2, void *aux)
   return false;
 }
 
-// /*Sorts the ready_list present in thread.c*/
-//  void sort_ready_list(void)
-// {
-//   list_sort(&ready_list, priority_comparator, 0);
-// }
-
 bool
 can_preempt_thread(struct thread *t1, struct thread *t2)
 {
@@ -632,9 +626,7 @@ void update_ready_list(struct thread *t) {
   }
 }
 
-/* Searches the stack of Donation priority list for the priority of the donor
-   thread to remove it from the list and change the current priority 
-   accordingly*/
+/* Find the next priority for the donor, if found then update the priorities list. */
 void update_priority_list(struct thread *cur,int elem) { 
   int found_index = -1;
   int total_len = (cur->len)-1;
