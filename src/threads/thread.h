@@ -24,6 +24,13 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+/* Nice value boundary */
+#define NICE_MIN -20
+#define NICE_DEFAULT 0
+#define NICE_MAX 20
+
+#define RECENT_CPU_BEGIN 0
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -96,6 +103,9 @@ struct thread
     struct lock *waiting_for;           /* Lock for which a blocked thread waits */
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+    /* For advanced schedule */
+    int nice;                             /* Thread nice value */
+    int recent_cpu;                       /* Thread recent CPU */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -144,5 +154,14 @@ int thread_get_load_avg (void);
 bool compare_priority(struct list_elem *l1, struct list_elem *l2, void *aux);
 void sort_ready_list(void);
 void search_array(struct thread *cur,int elem);
+
+void thread_calculate_advanced_priority (void);
+void calculate_advanced_priority_for_all (void);
+void calculate_advanced_priority (struct thread *, void *aux);
+void thread_calculate_recent_cpu (void);
+void calculate_recent_cpu_for_all (void);
+void calculate_recent_cpu (struct thread *, void *aux);
+void calculate_load_avg (void);
+
 
 #endif /* threads/thread.h */
