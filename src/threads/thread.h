@@ -98,7 +98,6 @@ struct thread
     int priorities[9];                  /* Donated Priority List */  
     int size;                           /* Size of donated priority list */
     struct list_elem allelem;           /* List element for all threads list. */
-    int64_t wakeup_time;                /* WakeUp time for a sleeping thread. */
     int donation_no;                    /* Store the number of donation locks */
     struct lock *waiting_for;           /* Lock for which a blocked thread waits */
     /* Shared between thread.c and synch.c. */
@@ -114,6 +113,7 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+    int64_t wake_up_ticks;              /* Local wake up time for thread*/
   };
 
 /* If false (default), use round-robin scheduler.
@@ -139,6 +139,8 @@ const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
+void thread_sleep (int64_t ticks);
+void thread_wake_up (int64_t ticks);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);
