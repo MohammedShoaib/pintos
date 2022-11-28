@@ -102,9 +102,10 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
     int priority;                       /* Priority. */
-    int priorities[9];                  /* Donated Priority List */
+    int priorities[9];                  /* Donated Priority List, size is capped at 9 because nested levels = 8
+                                          and one more that stores the original priority. */
     int len;                           /* Size of donated priority list */
-    int donation_no;                    /* Store the number of donation locks */
+    int num_donation;                    /* Number of donation locks. */
     struct lock *blocking_lock;           /* Lock for which a blocked thread waits */
 
   };
@@ -145,7 +146,6 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 bool priority_comparator(struct list_elem *l1, struct list_elem *l2, void *aux);
-bool can_preempt_thread(struct thread *t1, struct thread *t2);
 void update_priority_list(struct thread *cur,int elem);
 
 #endif /* threads/thread.h */
