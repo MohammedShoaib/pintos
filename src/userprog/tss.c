@@ -1,7 +1,6 @@
 #include "userprog/tss.h"
 #include <debug.h>
 #include <stddef.h>
-#include <stdarg.h>
 #include "userprog/gdt.h"
 #include "threads/thread.h"
 #include "threads/palloc.h"

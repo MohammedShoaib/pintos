@@ -1,0 +1,50 @@
+			+-------------------------+
+			|      CompSci 143A       |
+			| PROJECT 0: Getting Real |
+			|     DESIGN DOCUMENT     |
+			+-------------------------+
+				   
+---- AUTHOR ----
+
+>> Fill in your name and email address.
+
+Iniyavan Sathiamurthi <isathiam@uci.edu>
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, or notes for the
+>> TAs, please give them here.
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+
+			     Booting Pintos
+			     ==============
+
+---- QUESTIONS ---- 
+>> Put the screenshots of Pintos running in src/p0.
+>> A1: Is there any particular issue that you would like us to know?
+The QEMU emulator run extremely slow and makes it hard to type user inputs.
+
+			     Kernel Monitor
+			     ==============
+
+---- DATA STRUCTURES ----
+
+>> C1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+uint8_t temp - to capture the user input character
+char str[80] - string array to store the whole command from user
+count - the current index to store for str
+
+---- ALGORITHMS ----
+>> C2: Explain how you read and write to the console for the kernel monitor.
+Using input_getc() function, I was able to read the users inputs 1 character
+at a time. 
+
+>> C3: Any additional enhancement you implement?
+I added extra print statements to identify when the program executes a certain
+command or finishes the program. 

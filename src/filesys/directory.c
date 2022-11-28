@@ -1,7 +1,6 @@
 #include "filesys/directory.h"
 #include <stdio.h>
 #include <string.h>
-#include <stdarg.h>
 #include <list.h>
 #include "filesys/filesys.h"
 #include "filesys/inode.h"

@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ustar.h>
-#include <stdarg.h>
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"

@@ -1,7 +1,6 @@
 #include "userprog/exception.h"
 #include <inttypes.h>
 #include <stdio.h>
-#include <stdarg.h>
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
