@@ -196,7 +196,7 @@ bool time_comparator(struct list_elem *l1, struct list_elem *l2, void *aux)
     if (t1->wakeup_time == t2->wakeup_time) {
         return t1->priority > t2->priority;
     }
-    return t1->wakeup_time < t2->wakeup_time
+    return t1->wakeup_time < t2->wakeup_time;
 }
 
 
