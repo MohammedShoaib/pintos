@@ -265,8 +265,6 @@ lock_release (struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
 //  enum intr_level old_level;
 //  old_level = intr_disable ();
-  lock->holder = NULL;
-  sema_up (&lock->semaphore);
   if (!thread_mlfqs) {
       struct semaphore *lock_sema = &lock->semaphore;
       list_sort(&lock_sema->waiters, compare_priority, 0);
@@ -283,6 +281,8 @@ lock_release (struct lock *lock)
           thread_current()->priority = thread_current()->priorities[0];
       }
   }
+  lock->holder = NULL;
+  sema_up (&lock->semaphore);
 //  intr_set_level (old_level);
 }
 
