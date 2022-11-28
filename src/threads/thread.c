@@ -500,11 +500,11 @@ calculate_load_avg (void)
 void
 thread_set_nice (int nice UNUSED) 
 {
-    ASSERT (new_nice >= NICE_MIN && new_nice <= NICE_MAX);
+    ASSERT (nice >= NICE_MIN && nice <= NICE_MAX);
     struct thread *cur;
 
     cur = thread_current ();
-    cur->nice = new_nice;
+    cur->nice = nice;
 
     thread_calculate_advanced_priority ();
     /* If the current thread's status is THREAD_READY, then just reinsert it
@@ -530,7 +530,7 @@ thread_set_nice (int nice UNUSED)
         )->priority > cur->priority
         )
         {
-            thread_yield_current (cur);
+            thread_yield ();
         }
     }
 }
@@ -786,7 +786,7 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
 /* Compares the priority of the two threads and returns true if priority
    of first thread is greater than the second thread. */
-bool compare_priority(const struct list_elem *l1, const struct list_elem *l2,void *aux UNUSED)
+bool compare_priority(const struct list_elem *l1, const struct list_elem *l2, void *aux UNUSED)
 {
     ASSERT (l1 != NULL);
     ASSERT (l2 != NULL);
