@@ -1,11 +1,9 @@
-
 #include "threads/thread.h"
 #include <debug.h>
 #include <stddef.h>
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdarg.h>
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -27,6 +25,9 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
+
+/* Store all blocked threads until time is up. */
+static struct list block_list;
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -99,6 +100,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init (&block_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -327,6 +329,53 @@ thread_yield (void)
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
+}
+
+static bool
+comparator_wake_up_tick (struct list_elem *elem1, struct list_elem *elem2, void *aux)
+{
+  struct thread *t1 = list_entry (elem1, struct thread, elem);
+  struct thread *t2 = list_entry (elem2, struct thread, elem);
+
+  if(t1->wake_up_ticks < t2->wake_up_ticks)
+    return true;
+
+  return false;
+}
+
+void
+thread_sleep (int64_t ticks)
+{
+  struct thread *cur = thread_current ();
+
+  intr_disable ();
+  cur->wake_up_ticks = ticks;
+  list_insert_ordered (&block_list, &cur->elem, comparator_wake_up_tick, NULL);
+  thread_block ();
+  intr_enable ();
+}
+
+void
+thread_wake_up (int64_t ticks)
+{
+  struct list_elem *cur_elem;
+  struct thread *cur_thread;
+
+  while(!list_empty (&block_list))
+  {
+    cur_elem = list_front (&block_list);
+    cur_thread = list_entry (cur_elem, struct thread, elem);
+
+    if(cur_thread->wake_up_ticks > ticks)
+    {
+      break;
+    }
+    else
+    {
+      list_pop_front (&block_list);
+      thread_unblock(cur_thread);
+    }
+  }
 }
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
