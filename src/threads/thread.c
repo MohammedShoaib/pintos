@@ -336,10 +336,11 @@ comparator_wake_up_tick (struct list_elem *elem1, struct list_elem *elem2, void 
 {
   struct thread *t1 = list_entry (elem1, struct thread, elem);
   struct thread *t2 = list_entry (elem2, struct thread, elem);
-  if (t1->wake_up_ticks == t2->wake_up_ticks) {
-      return t1->priority >= t2->priority;
-  }
-  return t1->wake_up_ticks < t2->wake_up_ticks;
+
+  if(t1->wake_up_ticks < t2->wake_up_ticks)
+    return true;
+
+  return false;
 }
 
 void
