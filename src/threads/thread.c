@@ -383,7 +383,7 @@ calculate_advanced_priority_for_all (void)
     /* resort ready_list */
     if (!list_empty (&ready_list))
     {
-        list_sort (&ready_list, compare_priority, NULL);
+        list_sort (&ready_list, priority_comparator, NULL);
     }
 }
 
@@ -521,7 +521,7 @@ thread_set_nice (int nice UNUSED)
             enum intr_level old_level;
             old_level = intr_disable ();
             list_remove (&cur->elem);
-            list_insert_ordered (&ready_list, &cur->elem, compare_priority, NULL);
+            list_insert_ordered (&ready_list, &cur->elem, priority_comparator, NULL);
             intr_set_level (old_level);
         }
         else if (cur->status == THREAD_RUNNING &&
