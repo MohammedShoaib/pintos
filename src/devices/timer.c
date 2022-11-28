@@ -25,8 +25,6 @@ static int64_t ticks;
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
 
-/*  List of sleeping threads.
-    Sorted in order of wake_up time and priority. */
 static struct list sleeping_threads;
 
 static intr_handler_func timer_interrupt;

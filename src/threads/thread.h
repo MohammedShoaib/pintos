@@ -95,7 +95,7 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
-    int priorities[9];                  /* Donated Priority List */  
+    int priorities[9];                  /* Donated Priorities */
     int size;                           /* Size of donated priority list */
     struct list_elem allelem;           /* List element for all threads list. */
     int64_t wakeup_time;                /* WakeUp time for a sleeping thread. */
