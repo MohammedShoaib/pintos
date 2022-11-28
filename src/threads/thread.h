@@ -87,13 +87,10 @@ struct thread
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
-    int priorities[9];                  /* Donated Priority List */  
-    int size;                           /* Size of donated priority list */
+    
     struct list_elem allelem;           /* List element for all threads list. */
     int64_t wakeup_time;                /* WakeUp time for a sleeping thread. */
-    int donation_no;                    /* Store the number of donation locks */
-    struct lock *waiting_for;           /* Lock for which a blocked thread waits */
+    
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -104,6 +101,12 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+    int priority;                       /* Priority. */
+    int priorities[9];                  /* Donated Priority List */
+    int len;                           /* Size of donated priority list */
+    int donation_no;                    /* Store the number of donation locks */
+    struct lock *blocking_lock;           /* Lock for which a blocked thread waits */
+
   };
 
 /* If false (default), use round-robin scheduler.
@@ -141,8 +144,8 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-bool compare_priority(struct list_elem *l1, struct list_elem *l2, void *aux);
-void sort_ready_list(void);
-void search_array(struct thread *cur,int elem);
+bool priority_comparator(struct list_elem *l1, struct list_elem *l2, void *aux);
+bool can_preempt_thread(struct thread *t1, struct thread *t2);
+void update_priority_list(struct thread *cur,int elem);
 
 #endif /* threads/thread.h */
