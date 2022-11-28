@@ -25,7 +25,7 @@ static int64_t ticks;
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
 
-static struct list sleeping_threads;
+static struct list blocked_threads;
 
 static intr_handler_func timer_interrupt;
 static bool too_many_loops (unsigned loops);
@@ -41,7 +41,7 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
-  list_init(&sleeping_threads);
+  list_init(&blocked_threads);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -104,7 +104,7 @@ timer_sleep (int64_t ticks)
 
   int64_t start = timer_ticks ();
   thread_current()->wakeup_time = start + ticks;
-  list_insert_ordered(&sleeping_threads, &cur->elem, compare_time, 0);
+  list_insert_ordered(&blocked_threads, &cur->elem, time_comparator, 0);
 
   enum intr_level old_level;
   // Disable interrupt 
@@ -187,13 +187,38 @@ timer_print_stats (void)
 {
   printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
-
+
+bool time_comparator(struct list_elem *l1, struct list_elem *l2, void *aux)
+{
+    struct thread *t1 = list_entry(l1,struct thread,elem);
+    struct thread *t2 = list_entry(l2,struct thread,elem);
+
+    if (t1->wakeup_time == t2->wakeup_time) {
+        return t1->priority > t2->priority;
+    }
+    return t1->wakeup_time < t2->wakeup_time
+}
+
+
+void wakeup_timed_threads() {
+
+    while (!list_empty(&blocked_threads)) {
+        struct list_elem *top_elem = list_front(&blocked_threads);
+        if (list_entry(top_elem, struct thread, elem)->wakeup_time > ticks) {
+            break;
+        }
+        struct thread *top_thread = list_entry(top_elem, struct thread, elem);
+        list_pop_front(&blocked_threads);
+        thread_unblock(top_thread);
+    }
+}
+
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
-  wakeup_thread();
+  wakeup_timed_threads();
   thread_tick ();
   if (thread_mlfqs) {
       calculate_metrics_for_mlfqs();
@@ -288,41 +313,4 @@ real_time_delay (int64_t num, int32_t denom)
      the possibility of overflow. */
   ASSERT (denom % 1000 == 0);
   busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000)); 
-}
-
-/* Compare wakeup time and priority of threads.
-   If two threads have same wakeup time then,
-   thread with higher priority if place first. */ 
-bool compare_time(struct list_elem *l1, struct list_elem *l2, void *aux)
-{
-  struct thread *t1 = list_entry(l1,struct thread,elem);
-  struct thread *t2 = list_entry(l2,struct thread,elem);
-
-  if( t1->wakeup_time < t2->wakeup_time)
-    return true;
-  else if (t1->wakeup_time == t2->wakeup_time){
-    if( t1->priority > t2->priority)
-      return true;
-  }
-
-  return false;
-}
-
-/* Wakes a sleeping thread who need to wake up.
-   Unblock the thread and put in the ready list. */
-void wakeup_thread() {
-  while (true) {
-    if (list_empty(&sleeping_threads))
-      return;
-
-    struct list_elem *top_elem = list_front(&sleeping_threads);
-
-    if (list_entry(top_elem, struct thread, elem)->wakeup_time <= ticks){
-      struct thread *top_thread = list_entry(top_elem, struct thread, elem);
-      list_pop_front(&sleeping_threads);
-      thread_unblock(top_thread);
-    }
-    else
-      return;
-  }
 }
