@@ -94,13 +94,10 @@ struct thread
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
-    int priorities[9];                  /* Donated Priorities */
-    int size;                           /* Size of donated priority list */
+
     struct list_elem allelem;           /* List element for all threads list. */
     int64_t wakeup_time;                /* WakeUp time for a sleeping thread. */
-    int donation_no;                    /* Store the number of donation locks */
-    struct lock *waiting_for;           /* Lock for which a blocked thread waits */
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
     /* For advanced schedule */
@@ -114,6 +111,13 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+    int priority;                       /* Priority. */
+    int priorities[9];                  /* Donated Priority List, size is capped at 9 because nested levels = 8
+                                          and one more that stores the original priority. */
+    int len;                           /* Size of donated priority list */
+    int num_donation;                    /* Number of donation locks. */
+    struct lock *blocking_lock;           /* Lock for which a blocked thread waits */
+
   };
 
 /* If false (default), use round-robin scheduler.
@@ -151,9 +155,8 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-bool compare_priority(const struct list_elem *l1, const struct list_elem *l2, void *aux UNUSED);
-void sort_ready_list(void);
-void search_array(struct thread *cur,int elem);
+bool priority_comparator(struct list_elem *l1, struct list_elem *l2, void *aux);
+void update_priority_list(struct thread *cur,int elem);
 
 void thread_calculate_advanced_priority (void);
 void calculate_advanced_priority_for_all (void);
@@ -162,6 +165,4 @@ void thread_calculate_recent_cpu (void);
 void calculate_recent_cpu_for_all (void);
 void calculate_recent_cpu (struct thread *, void *aux);
 void calculate_load_avg (void);
-
-
 #endif /* threads/thread.h */
