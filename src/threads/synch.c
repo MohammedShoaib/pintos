@@ -200,8 +200,6 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
-//  enum intr_level old_level;
-//  old_level = intr_disable ();
 
   if(lock->holder != NULL && !thread_mlfqs)
   {
@@ -229,7 +227,6 @@ lock_acquire (struct lock *lock)
   if (!thread_mlfqs) {
       lock->holder->waiting_for=NULL;
   }
-//  intr_set_level (old_level);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -263,8 +260,6 @@ lock_release (struct lock *lock)
 { 
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
-//  enum intr_level old_level;
-//  old_level = intr_disable ();
   if (!thread_mlfqs) {
       struct semaphore *lock_sema = &lock->semaphore;
       list_sort(&lock_sema->waiters, compare_priority, 0);
@@ -283,7 +278,6 @@ lock_release (struct lock *lock)
   }
   lock->holder = NULL;
   sema_up (&lock->semaphore);
-//  intr_set_level (old_level);
 }
 
 /* Returns true if the current thread holds LOCK, false

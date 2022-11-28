@@ -215,7 +215,7 @@ thread_create (const char *name, int priority,
       thread_calculate_recent_cpu ();
       thread_calculate_advanced_priority ();
   }
-  thread_yield(); //TODO: should we yield based on priority?
+  thread_yield();
   return tid;
 }
 
@@ -401,7 +401,7 @@ calculate_advanced_priority (struct thread *cur, void *aux UNUSED)
          * of the whole priority.
          */
         cur->priority = PRI_MAX -
-                        CONVERT_TO_INT_NEAREST (DIV_INT (cur->recent_cpu, 4)) -  cur->nice * 2;
+                        CONVERT_TO_NEAREST_INT (DIVIDE_INT (cur->recent_cpu, 4)) -  cur->nice * 2;
         /* Make sure it falls in the priority boundry */
         if (cur->priority < PRI_MIN)
         {
@@ -452,9 +452,9 @@ calculate_recent_cpu (struct thread *cur, void *aux UNUSED)
     if (cur != idle_thread)
     {
         /* load_avg and recent_cpu are fixed-point numbers */
-        int load = MULT_INT (load_avg, 2);
+        int load = MULTIPLY_INT (load_avg, 2);
         int coefficient = DIVIDE (load, ADD_INT (load, 1));
-        cur->recent_cpu = ADD_INT (MULTIPLE (coefficient, cur->recent_cpu),
+        cur->recent_cpu = ADD_INT (MULTIPLY (coefficient, cur->recent_cpu),
                                    cur->nice);
     }
 }
@@ -492,8 +492,8 @@ calculate_load_avg (void)
     {
         ready_threads = ready_list_threads;
     }
-    load_avg = MULTIPLE (DIV_INT (CONVERT_TO_FP (59), 60), load_avg) +
-               MULT_INT (DIV_INT (CONVERT_TO_FP (1), 60), ready_threads);
+    load_avg = MULTIPLY (DIVIDE_INT (CONVERT_TO_FP (59), 60), load_avg) +
+               MULTIPLY_INT (DIVIDE_INT (CONVERT_TO_FP (1), 60), ready_threads);
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -546,14 +546,14 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-    return CONVERT_TO_INT_NEAREST (MULT_INT (load_avg, 100));
+    return CONVERT_TO_NEAREST_INT (MULTIPLY_INT (load_avg, 100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-    return CONVERT_TO_INT_NEAREST (MULT_INT (thread_current ()->recent_cpu,
+    return CONVERT_TO_NEAREST_INT (MULTIPLY_INT (thread_current ()->recent_cpu,
                                              100));
 }
 
