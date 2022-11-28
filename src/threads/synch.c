@@ -406,8 +406,15 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   }
 }
 
-/*sorts the corresponding semaphores on the basis of the priority
-of the first thread in waiting list of each semaphore.*/
+/**
+ * @brief Sort semaphores depending on the priority of the threads
+ * waiting for it.
+ *
+ * @param l1
+ * @param l2
+ * @return true
+ * @return false
+ */
 bool semaphore_comparator(struct list_elem *l1, struct list_elem *l2,void *aux)
 {
   struct semaphore *s1 = &list_entry(l1,struct semaphore_elem,elem)->semaphore;
