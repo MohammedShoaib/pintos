@@ -340,8 +340,9 @@ thread_set_priority (int new_priority)
 {
   struct thread *curr_thread = thread_current();
   curr_thread->priorities[0] = new_priority;
-  if(curr_thread->len == 1)
-  { 
+
+  // If it's not a donation, set the priority value.
+  if(curr_thread->len == 1) { 
     curr_thread->priority = new_priority;
     thread_yield();
   }
@@ -433,7 +434,7 @@ kernel_thread (thread_func *function, void *aux)
   function (aux);       /* Execute the thread function. */
   thread_exit ();       /* If function() returns, kill the thread. */
 }
-
+
 /* Returns the running thread. */
 struct thread *
 running_thread (void) 
@@ -472,13 +473,13 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
  
- /* Make list of priorities and not the number of 
-    locks with each thread*/
-  t->priorities[0] = priority;
-  t->donation_no=0;
+  // Stores the priorities in an array.
   t->len = 1;
+  t->priorities[0] = priority;
+  t->num_donation = 0;
+  
   t->magic = THREAD_MAGIC;
-  t->blocking_lock=NULL;
+  t->blocking_lock = NULL;
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
@@ -607,21 +608,6 @@ bool priority_comparator(struct list_elem *l1, struct list_elem *l2, void *aux)
   struct thread *t2 = list_entry(l2,struct thread,elem);
   if( t1->priority > t2->priority)
     return true;
-  return false;
-}
-
-// /*Sorts the ready_list present in thread.c*/
-//  void sort_ready_list(void)
-// {
-//   list_sort(&ready_list, priority_comparator, 0);
-// }
-
-bool
-can_preempt_thread(struct thread *t1, struct thread *t2)
-{
-  if(t1->priority > t2->priority)
-    return true;
-
   return false;
 }
 
