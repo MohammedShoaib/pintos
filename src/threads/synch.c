@@ -185,6 +185,14 @@ lock_init (struct lock *lock)
   lock->is_donated=false;
 }
 
+/* Acquires LOCK, sleeping until it becomes available if
+   necessary.  The lock must not already be held by the current
+   thread.
+
+   This function may sleep, so it must not be called within an
+   interrupt handler.  This function may be called with
+   interrupts disabled, but interrupts will be turned back on if
+   we need to sleep. */
 void
 lock_acquire (struct lock *lock)
 {
@@ -192,6 +200,9 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
+//  enum intr_level old_level;
+//  old_level = intr_disable ();
+
   if(lock->holder != NULL && !thread_mlfqs)
   {
     thread_current()->waiting_for= lock;
@@ -218,8 +229,15 @@ lock_acquire (struct lock *lock)
   if (!thread_mlfqs) {
       lock->holder->waiting_for=NULL;
   }
+//  intr_set_level (old_level);
 }
 
+/* Tries to acquires LOCK and returns true if successful or false
+   on failure.  The lock must not already be held by the current
+   thread.
+
+   This function will not sleep, so it may be called within an
+   interrupt handler. */
 bool
 lock_try_acquire (struct lock *lock)
 {
@@ -235,11 +253,18 @@ lock_try_acquire (struct lock *lock)
   return success;
 }
 
+/* Releases LOCK, which must be owned by the current thread.
+
+   An interrupt handler cannot acquire a lock, so it does not
+   make sense to try to release a lock within an interrupt
+   handler. */
 void
 lock_release (struct lock *lock) 
 { 
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
+//  enum intr_level old_level;
+//  old_level = intr_disable ();
   if (!thread_mlfqs) {
       struct semaphore *lock_sema = &lock->semaphore;
       list_sort(&lock_sema->waiters, compare_priority, 0);
@@ -258,6 +283,7 @@ lock_release (struct lock *lock)
   }
   lock->holder = NULL;
   sema_up (&lock->semaphore);
+//  intr_set_level (old_level);
 }
 
 /* Returns true if the current thread holds LOCK, false
