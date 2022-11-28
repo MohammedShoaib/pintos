@@ -151,7 +151,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-bool compare_priority(const struct list_elem *l1, const struct list_elem *l2, void *aux UNUSED)
+bool compare_priority(const struct list_elem *l1, const struct list_elem *l2, void *aux UNUSED);
 void sort_ready_list(void);
 void search_array(struct thread *cur,int elem);
 
