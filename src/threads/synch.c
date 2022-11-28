@@ -185,6 +185,14 @@ lock_init (struct lock *lock)
   lock->is_donated=false;
 }
 
+/* Acquires LOCK, sleeping until it becomes available if
+   necessary.  The lock must not already be held by the current
+   thread.
+
+   This function may sleep, so it must not be called within an
+   interrupt handler.  This function may be called with
+   interrupts disabled, but interrupts will be turned back on if
+   we need to sleep. */
 void
 lock_acquire (struct lock *lock)
 {
@@ -221,6 +229,12 @@ lock_acquire (struct lock *lock)
   }
 }
 
+/* Tries to acquires LOCK and returns true if successful or false
+   on failure.  The lock must not already be held by the current
+   thread.
+
+   This function will not sleep, so it may be called within an
+   interrupt handler. */
 bool
 lock_try_acquire (struct lock *lock)
 {
@@ -236,6 +250,11 @@ lock_try_acquire (struct lock *lock)
   return success;
 }
 
+/* Releases LOCK, which must be owned by the current thread.
+
+   An interrupt handler cannot acquire a lock, so it does not
+   make sense to try to release a lock within an interrupt
+   handler. */
 void
 lock_release (struct lock *lock) 
 { 
