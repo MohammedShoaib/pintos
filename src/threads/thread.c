@@ -13,6 +13,8 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/fixed-point.h"
+
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -379,7 +381,7 @@ calculate_advanced_priority_for_all (void)
     /* resort ready_list */
     if (!list_empty (&ready_list))
     {
-        list_sort (&ready_list, priority_more, NULL);
+        list_sort (&ready_list, compare_priority, NULL);
     }
 }
 
@@ -784,7 +786,7 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
 /* Compares the priority of the two threads and returns true if priority
    of first thread is greater than the second thread. */
-bool compare_priority(struct list_elem *l1, struct list_elem *l2,void *aux)
+bool compare_priority(const struct list_elem *l1, const struct list_elem *l2,void *aux UNUSED)
 {
     ASSERT (l1 != NULL);
     ASSERT (l2 != NULL);
