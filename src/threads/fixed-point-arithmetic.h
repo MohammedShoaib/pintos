@@ -1,4 +1,3 @@
-/* ##> Our implementation */
 #ifndef THREADS_FIXED_POINT_H
 #define THREADS_FIXED_POINT_H
 

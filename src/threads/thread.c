@@ -13,7 +13,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
-#include "threads/fixed-point.h"
+#include "threads/fixed-point-arithmetic.h"
 
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -451,7 +451,6 @@ calculate_recent_cpu (struct thread *cur, void *aux UNUSED)
     ASSERT (is_thread (cur));
     if (cur != idle_thread)
     {
-        /* load_avg and recent_cpu are fixed-point numbers */
         int load = MULTIPLY_INT (load_avg, 2);
         int coefficient = DIVIDE (load, ADD_INT (load, 1));
         cur->recent_cpu = ADD_INT (MULTIPLY (coefficient, cur->recent_cpu),
