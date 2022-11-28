@@ -100,7 +100,7 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
-    /* For advanced schedule */
+
     int nice;                             /* Thread nice value */
     int recent_cpu;                       /* Thread recent CPU */
 
@@ -158,9 +158,9 @@ int thread_get_load_avg (void);
 bool priority_comparator(struct list_elem *l1, struct list_elem *l2, void *aux);
 void update_priority_list(struct thread *cur,int elem);
 
-void thread_calculate_advanced_priority (void);
-void calculate_advanced_priority_for_all (void);
-void calculate_advanced_priority (struct thread *, void *aux);
+void thread_calculate_priority (void);
+void calculate_priority_for_all (void);
+void calculate_priority (struct thread *, void *aux);
 void thread_calculate_recent_cpu (void);
 void calculate_recent_cpu_for_all (void);
 void calculate_recent_cpu (struct thread *, void *aux);

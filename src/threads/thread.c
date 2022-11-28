@@ -54,7 +54,7 @@ static long long idle_ticks;    /* # of timer ticks spent idle. */
 static long long kernel_ticks;  /* # of timer ticks in kernel threads. */
 static long long user_ticks;    /* # of timer ticks in user programs. */
 
-/* load_avg for advanced priority. Fixed-point number */
+/* load_avg for priority. Fixed-point number */
 static int load_avg;
 
 /* Scheduling. */
@@ -211,9 +211,9 @@ thread_create (const char *name, int priority,
   if (thread_mlfqs)
   {
       calculate_recent_cpu (t, NULL);
-      calculate_advanced_priority (t, NULL);
+      calculate_priority (t, NULL);
       thread_calculate_recent_cpu ();
-      thread_calculate_advanced_priority ();
+      thread_calculate_priority ();
   }
   thread_yield();
   return tid;
@@ -368,18 +368,18 @@ thread_get_priority (void)
 }
 
 void
-thread_calculate_advanced_priority (void)
+thread_calculate_priority (void)
 {
-    calculate_advanced_priority (thread_current (), NULL);
+    calculate_priority (thread_current (), NULL);
 }
 
 /* Calculate priority for all threads in all_list.
  *  It is also recalculated once every fourth clock tick, for every thread.
  */
 void
-calculate_advanced_priority_for_all (void)
+calculate_priority_for_all (void)
 {
-    thread_foreach (calculate_advanced_priority, NULL);
+    thread_foreach (calculate_priority, NULL);
     /* resort ready_list */
     if (!list_empty (&ready_list))
     {
@@ -387,14 +387,8 @@ calculate_advanced_priority_for_all (void)
     }
 }
 
-/* Calculate advanced priority.
- * Thread priority is calculated initially at thread initialization.
- * It is also recalculated once every fourth clock tick, for every thread.
- * In either case, it is determined by the formula
- * priority = PRI_MAX - (recent_cpu / 4) - (nice * 2)
- */
 void
-calculate_advanced_priority (struct thread *cur, void *aux UNUSED)
+calculate_priority (struct thread *cur, void *aux UNUSED)
 {
     ASSERT (is_thread (cur));
     if (cur != idle_thread)
@@ -507,7 +501,7 @@ thread_set_nice (int nice UNUSED)
     cur = thread_current ();
     cur->nice = nice;
 
-    thread_calculate_advanced_priority ();
+    thread_calculate_priority ();
     /* If the current thread's status is THREAD_READY, then just reinsert it
      * to the ready_list in order to keep the ready_list in order; if its status
      * is THREAD_RUNNING, then compare its priority with the largest one's

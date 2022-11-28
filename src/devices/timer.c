@@ -240,7 +240,7 @@ static void calculate_metrics_for_mlfqs(void) {
     }
     if (ticks % 4 == 0)
     {
-        calculate_advanced_priority_for_all ();
+        calculate_priority_for_all ();
     }
 }
 
