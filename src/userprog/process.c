@@ -195,7 +195,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack (void **esp, const char *file_name);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -302,7 +302,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp, file_name))
     goto done;
 
   /* Start address. */
@@ -424,22 +424,82 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
+static void
+populate_stack (void **esp, char **command_line_args, int index) {
+    char **args_addr;
+    char *espData = (char *) *esp;
+    for(int i = index-1; i >= 0; i--) {
+      int arg_len = strlen(command_line_args[i]);
+      espData -= arg_len + 1;
+      strlcpy(espData, command_line_args[i], arg_len+1);
+      args_addr[i] = espData;
+    }
+
+    // word align
+    uint8_t word_align = 0;
+    int word_align_len = (size_t) *espData % 4;
+    *espData -= word_align_len;
+    for(int i = 0; i < word_align_len; i++) {
+      espData -= 1;
+      *espData = word_align;
+    }
+
+    // null pointer
+    espData -= sizeof(char*);
+    *espData = 0;
+
+    // pointers to args
+    for (int i = index-1; i >= 0; i--) {
+      espData -= sizeof(char*);
+      //memcpy(*espData, args_addr[i], sizeof(char*));
+      *((int *)espData) = (unsigned) args_addr[i];
+    }
+
+    // argv into the stack
+    void *argv0 = espData;
+    espData -= sizeof (char**);
+    memcpy(*espData, argv0, sizeof(char**));
+    //*((int *)espData) = (unsigned) espData;
+
+    // argc into the stack
+    espData -= sizeof (int);
+    memcpy(*esp, &index, sizeof(int));
+
+    // return address
+    espData -= sizeof(void*);
+    *espData = 0;
+
+    // moving pointer to point to the stop of the stack
+    *esp = espData;
+}
+
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp) 
+setup_stack (void **esp, const char *file_name) 
 {
   uint8_t *kpage;
   bool success = false;
+
+  char *token, *save_ptr;
+  char **command_line_args = palloc_get_page(0);
+  int index = 0;
+
+  for (token = (char*)file_name; token != NULL; token = strtok_r(NULL, " ", save_ptr)){
+    command_line_args[index] = token;
+    index++;
+  }
 
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
+      if (success) {
         *esp = PHYS_BASE;
-      else
+        populate_stack(esp, command_line_args, index);
+      } else {
         palloc_free_page (kpage);
+      }
     }
   return success;
 }
