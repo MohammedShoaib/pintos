@@ -20,6 +20,7 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static void populate_stack (void **esp, char **command_line_args, int index);
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -98,6 +99,8 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+  palloc_free_page (cur->command);
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -131,7 +134,7 @@ process_activate (void)
      interrupts. */
   tss_update ();
 }
-
+
 /* We load ELF binaries.  The following definitions are taken
    from the ELF specification, [ELF1], more-or-less verbatim.  */
 
@@ -428,6 +431,7 @@ static void
 populate_stack (void **esp, char **command_line_args, int index) {
     char **args_addr;
     char *espData = (char *) *esp;
+
     for(int i = index-1; i >= 0; i--) {
       int arg_len = strlen(command_line_args[i]);
       espData -= arg_len + 1;
@@ -487,12 +491,15 @@ setup_stack (void **esp, const char *file_name)
 
   for (token = (char*)file_name; token != NULL; token = strtok_r(NULL, " ", save_ptr)){
     command_line_args[index] = token;
+    if(index == 0) {
+      thread_current()->command = palloc_get_page (0);
+      strlcpy(thread_current()->command, token, strlen(token)+1);
+    }
     index++;
   }
 
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  if (kpage != NULL) 
-    {
+  if (kpage != NULL) {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success) {
         *esp = PHYS_BASE;
@@ -500,7 +507,8 @@ setup_stack (void **esp, const char *file_name)
       } else {
         palloc_free_page (kpage);
       }
-    }
+  }
+  palloc_free_page (token);
   return success;
 }
 
