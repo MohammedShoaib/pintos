@@ -17,7 +17,7 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  printf ("system call!\n");
+  // printf ("system call!\n");
 
   struct thread *t = thread_current ();
   int esp = (int) pagedir_get_page (t->pagedir, f->esp);
@@ -27,10 +27,11 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_HALT:
       syscall_halt ();
       break;
-    case SYS_EXIT:
-      syscall_exit (0);
+    // case SYS_EXIT:
+    //   syscall_exit (0);
+    //   break;
     default:
-      printf("System call not found!\n");
+      // printf("System call not found!\n");
       break;
   }
 
@@ -43,13 +44,13 @@ syscall_halt ()
   shutdown_power_off ();
 }
 
-void
-syscall_exit (int status)
-{
-  struct thread *t = thread_current ();
+// void
+// syscall_exit (int status)
+// {
+//   struct thread *t = thread_current ();
 
-  thread_exit ();
-}
+//   thread_exit ();
+// }
 
 // int
 // getpage_ptr(const void *vaddr)
