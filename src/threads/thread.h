@@ -100,6 +100,7 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+    char *command;
 
     int nice;                             /* Thread nice value */
     int recent_cpu;                       /* Thread recent CPU */
