@@ -20,6 +20,9 @@
 static void syscall_handler (struct intr_frame *);
 void get_args (struct intr_frame *f, int *arg, int num_of_args);
 void syscall_halt (void);
+int syscall_wait(pid_t pid);
+void syscall_close(int filedes);
+
 int syscall_open(const char * file_name);
 void validate_ptr (const void* vaddr);
 void validate_str (const void* str);
@@ -64,23 +67,21 @@ syscall_handler (struct intr_frame *f UNUSED)
       get_args(f, &arg[0], 1);
       syscall_exit(arg[0]);
       break;
-      
+    case SYS_WAIT:
+          // fill arg with the amount of arguments needed
+          get_args(f, &arg[0], 1);
+          f->eax = syscall_wait(arg[0]);
+          break;
     case SYS_OPEN:
-      // fill arg with amount of arguments needed
       get_args(f, &arg[0], 1);
-      
-      /* Check if command line is valid.
-       * We do not want to open junk which can cause a crash 
-       */
-       validate_str((const void*)arg[0]);
-     
-     // get page pointer
+      validate_str((const void*)arg[0]);
       arg[0] = getpage_ptr((const void *)arg[0]);
-      
-      /* syscall_open(int filedes) */
       f->eax = syscall_open((const char *)arg[0]);  // open this file
       break;
-      
+    case SYS_CLOSE:
+      get_args (f, &arg[0], 1);
+      syscall_close(arg[0]);
+      break;
     default:
       break;
   }
@@ -131,17 +132,27 @@ syscall_exit (int status)
 int
 syscall_open(const char *file_name)
 {
-    lock_acquire(&file_system_lock);
-    struct file *file_ptr = filesys_open(file_name); // from filesys.h
-    if (!file_ptr)
-    {
-        lock_release(&file_system_lock);
-        return ERROR;
-    }
-    int filedes = add_file(file_ptr);
+  lock_acquire(&file_system_lock);
+  struct file *file_ptr = filesys_open(file_name); // from filesys.h
+  if (!file_ptr)
+  {
     lock_release(&file_system_lock);
-    return filedes;
+    return ERROR;
+  }
+  int filedes = add_file(file_ptr);
+  lock_release(&file_system_lock);
+  return filedes;
 }
+
+/* syscall_close */
+void
+syscall_close(int filedes)
+{
+  lock_acquire(&file_system_lock);
+  process_close_file(filedes);
+  lock_release(&file_system_lock);
+}
+
 
 /* function to check if pointer is valid */
 void
@@ -159,19 +170,6 @@ void
 validate_str (const void* str)
 {
     for (; * (char *) getpage_ptr(str) != 0; str = (char *) str + 1);
-}
-
-/* function to check if buffer is valid */
-void
-validate_buffer(const void* buf, unsigned byte_size)
-{
-  unsigned i = 0;
-  char* local_buffer = (char *)buf;
-  for (; i < byte_size; i++)
-  {
-    validate_ptr((const void*)local_buffer);
-    local_buffer++;
-  }
 }
 
 /* get the pointer to page */
