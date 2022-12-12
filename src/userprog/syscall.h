@@ -35,7 +35,6 @@ int getpage_ptr (const void *vaddr);
 struct child_proc* find_child_process (int pid);
 void remove_child_process (struct child_proc *child);
 void remove_all_child_processes (void);
-struct file* get_file(int filedes);
 void process_close_file (int file_descriptor);
 void syscall_exit (int status);
 #endif /* userprog/syscall.h */
