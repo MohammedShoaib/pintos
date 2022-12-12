@@ -18,7 +18,6 @@
 
 
 static void syscall_handler (struct intr_frame *);
-int add_file (struct file *file_name);
 void get_args (struct intr_frame *f, int *arg, int num_of_args);
 void syscall_halt (void);
 int syscall_wait(pid_t pid);
@@ -143,13 +142,6 @@ syscall_open(const char *file_name)
   int filedes = add_file(file_ptr);
   lock_release(&file_system_lock);
   return filedes;
-}
-
-/* wait */
-int
-syscall_wait(pid_t pid)
-{
-    return process_wait(pid);
 }
 
 /* syscall_close */
