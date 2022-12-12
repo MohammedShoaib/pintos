@@ -102,7 +102,7 @@ process_wait (tid_t tid UNUSED)
     while (!thread_current()->exit) {
         thread_yield();
     } //TODO: return status
-  return thread_current()->status;
+  return thread_current()->tstatus;
 }
 
 /* Free the current process's resources. */

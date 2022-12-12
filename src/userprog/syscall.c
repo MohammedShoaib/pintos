@@ -107,7 +107,7 @@ syscall_exit (int status)
   {
       status = -1;
   }
-  cur->status = status;
+  cur->tstatus = status;
   printf("%s: exit(%d)\n", cur->name, status);
   thread_exit();
 }
