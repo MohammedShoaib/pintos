@@ -69,15 +69,6 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp, &saveptr);
-
-  if (success){
-    thread_current()->cp->load_status = LOADED;
-  }
-  else {
-    thread_current()->cp->load_status = LOAD_FAIL;
-  }
-  sema_up (&thread_current()->cp->load_sema);
-  
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success){ 
@@ -93,36 +84,13 @@ start_process (void *file_name_)
   NOT_REACHED ();
 }
 
-/* Waits for thread TID to die and returns its exit status.  If
-   it was terminated by the kernel (i.e. killed due to an
-   exception), returns -1.  If TID is invalid or if it was not a
-   child of the calling process, or if process_wait() has already
-   been successfully called for the given TID, returns -1
-   immediately, without waiting.
-
+/*
    This function will be implemented in problem 2-2.  For now, it
-   does nothing. */   
+   does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid UNUSED)
 {
-  struct child_process* child_process_ptr = find_child_process(child_tid);
-  if (!child_process_ptr)
-  {
-    return ERROR;
-  }
-  
-  if (child_process_ptr->wait)
-  {
-    return ERROR;
-  }
-  child_process_ptr->wait = 1; // set wait for child to true
-  while (!child_process_ptr->exit)
-  {
-    asm volatile ("" : : : "memory");
-  }
-  int status = child_process_ptr->status;
-  remove_child_process(child_process_ptr);
-  return status;
+  return -1;
 }
 
 /* Free the current process's resources. */
@@ -140,15 +108,6 @@ process_exit (void)
     file_close(cur->executable); // from file.h
   }
   lock_release(&file_system_lock);
-  
-  /* free the list of child processes */
-  remove_all_child_processes();
-  
-  if (is_thread_alive(cur->parent))
-  {
-    cur->cp->exit = 1;
-    sema_up(&cur->cp->exit_sema);
-  }
   
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -183,7 +142,7 @@ process_activate (void)
      interrupts. */
   tss_update ();
 }
-
+
 /* We load ELF binaries.  The following definitions are taken
    from the ELF specification, [ELF1], more-or-less verbatim.  */
 
@@ -281,8 +240,8 @@ load (const char *file_name, void (**eip) (void), void **esp, char **saveptr)
       goto done; 
     }
   // since file is an executable, we want to deny write
-  file_deny_write(file);
-  t->executable = file;
+  file_deny_write(file); //TODO: do we need
+  t->executable = file; //TODO: do we need
   
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -554,9 +513,6 @@ setup_stack (void **esp, char **saveptr, const char *filename)
   // free argv and cont
   free(argv);
   free(cont);
-  // hex dump to check
-  // hex_dump(0, *esp, byte_size, 1); 
-  // hex_dump((int)*esp+byte_size, *esp, byte_size, 1);
   return success;
 }
 
