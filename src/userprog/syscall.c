@@ -161,19 +161,6 @@ validate_str (const void* str)
     for (; * (char *) getpage_ptr(str) != 0; str = (char *) str + 1);
 }
 
-/* function to check if buffer is valid */
-void
-validate_buffer(const void* buf, unsigned byte_size)
-{
-  unsigned i = 0;
-  char* local_buffer = (char *)buf;
-  for (; i < byte_size; i++)
-  {
-    validate_ptr((const void*)local_buffer);
-    local_buffer++;
-  }
-}
-
 /* get the pointer to page */
 int
 getpage_ptr(const void *vaddr)
@@ -232,39 +219,18 @@ void remove_all_child_processes (void)
 int
 add_file (struct file *file_name)
 {
-  struct process_file *process_file_ptr = malloc(sizeof(struct process_file));
-  if (!process_file_ptr)
-  {
-    return ERROR;
-  }
-  process_file_ptr->file = file_name;
-  process_file_ptr->fd = thread_current()->fd;
-  thread_current()->fd++;
-  list_push_back(&thread_current()->file_list, &process_file_ptr->elem);
-  return process_file_ptr->fd;
-
-}
-
-/* get file that matches file descriptor */
-struct file*
-get_file (int filedes)
-{
-  struct thread *t = thread_current();
-  struct list_elem* next;
-  struct list_elem* e = list_begin(&t->file_list);
-
-  for (; e != list_end(&t->file_list); e = next)
-  {
-    next = list_next(e);
-    struct process_file *process_file_ptr = list_entry(e, struct process_file, elem);
-    if (filedes == process_file_ptr->fd)
+    struct process_file *process_file_ptr = malloc(sizeof(struct process_file));
+    if (!process_file_ptr)
     {
-      return process_file_ptr->file;
+        return ERROR;
     }
-  }
-  return NULL; // nothing found
-}
+    process_file_ptr->file = file_name;
+    process_file_ptr->fd = thread_current()->fd;
+    thread_current()->fd++;
+    list_push_back(&thread_current()->file_list, &process_file_ptr->elem);
+    return process_file_ptr->fd;
 
+}
 
 /* close the desired file descriptor */
 void
