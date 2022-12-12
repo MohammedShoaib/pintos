@@ -127,6 +127,21 @@ syscall_exit (int status)
   thread_exit();
 }
 
+/* syscall_open */
+int
+syscall_open(const char *file_name)
+{
+    lock_acquire(&file_system_lock);
+    struct file *file_ptr = filesys_open(file_name); // from filesys.h
+    if (!file_ptr)
+    {
+        lock_release(&file_system_lock);
+        return ERROR;
+    }
+    int filedes = add_file(file_ptr);
+    lock_release(&file_system_lock);
+    return filedes;
+}
 
 /* function to check if pointer is valid */
 void
@@ -200,6 +215,22 @@ void remove_all_child_processes (void)
   }
 }
 
+/* add file to file list and return file descriptor of added file*/
+int
+add_file (struct file *file_name)
+{
+    struct process_file *process_file_ptr = malloc(sizeof(struct process_file));
+    if (!process_file_ptr)
+    {
+        return ERROR;
+    }
+    process_file_ptr->file = file_name;
+    process_file_ptr->fd = thread_current()->fd;
+    thread_current()->fd++;
+    list_push_back(&thread_current()->file_list, &process_file_ptr->elem);
+    return process_file_ptr->fd;
+
+}
 
 /* close the desired file descriptor */
 void
