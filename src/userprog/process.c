@@ -100,9 +100,9 @@ process_wait (tid_t tid UNUSED)
         return ERROR;
     }
     while (!thread_current()->exit) {
-        asm volatile ("" : : : "memory");
+        thread_yield();
     } //TODO: return status
-  return -1;
+  return thread_current()->status;
 }
 
 /* Free the current process's resources. */

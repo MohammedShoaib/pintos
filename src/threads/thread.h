@@ -108,6 +108,7 @@ struct thread
     int load_status;
     int wait;
     int exit;
+    int status;
     struct file* executable; //TODO: do we need   // use for denying writes to executables
     struct list lock_list; //TODO: do we need      // use to keep track of locks the thread holds
   };
