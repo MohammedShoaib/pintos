@@ -6,9 +6,9 @@ our $LOADER_SIZE = 314;
 
 # Partition types.
 my (%role2type) = (KERNEL => 0x20,
-  FILESYS => 0x21,
-  SCRATCH => 0x22,
-  SWAP => 0x23);
+		   FILESYS => 0x21,
+		   SCRATCH => 0x22,
+		   SWAP => 0x23);
 my (%type2role) = reverse %role2type;
 
 # Order of roles within a given disk.

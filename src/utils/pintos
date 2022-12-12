@@ -14,8 +14,6 @@ BEGIN { my $self = $0; $self =~ s%/+[^/]*$%%; require "$self/Pintos.pm"; }
 our ($start_time) = time ();
 our ($sim);			# Simulator: bochs, qemu, or player.
 our ($debug) = "none";		# Debugger: none, monitor, or gdb.
-our ($gdbport) = 1234;    # GDB connection port. Default 1234.
-our ($uidport) = $< % 5000 + 25000; # GDB port based on user id
 our ($mem) = 4;			# Physical RAM in MB.
 our ($serial) = 1;		# Use serial port for input and output?
 our ($vga);			# VGA output: window, terminal, or none.
