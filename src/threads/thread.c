@@ -477,6 +477,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->fd = 2;                  // minimum file descriptor is 2
   list_init(&t->lock_list);
   t->executable = NULL;
+  t->load_status = NOT_LOADED;
+  t->wait = 0; // false
+  t->exit = 0; // false
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -613,7 +616,7 @@ int is_thread_alive (int pid){
 
 /* releases all the locks thread holds */
 void
-thread_release_locks (void) //TODO: do we need
+thread_release_locks (void)
 {
   struct thread *t = thread_current();
   struct list_elem *e;

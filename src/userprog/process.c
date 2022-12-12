@@ -71,8 +71,12 @@ start_process (void *file_name_)
   success = load (file_name, &if_.eip, &if_.esp, &saveptr);
     /* If load failed, quit. */
   palloc_free_page (file_name);
+  if (success) {
+      thread_current()->load_status = LOADED;
+  }
     if (!success){
-    thread_exit ();
+        thread_current()->load_status = LOAD_FAIL;
+        thread_exit ();
   }
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -90,12 +94,14 @@ start_process (void *file_name_)
 int
 process_wait (tid_t tid UNUSED)
 {
-    while (true) {
-        thread_yield();
-        if (is_thread_alive(tid) == 0) {
-            return -1;
-        }
+    if (!thread_current()->wait) {
+        thread_current()->wait = 1;
+    } else {
+        return ERROR;
     }
+    while (!thread_current()->exit) {
+        asm volatile ("" : : : "memory");
+    } //TODO: return status
   return -1;
 }
 
@@ -114,7 +120,7 @@ process_exit (void)
     file_close(cur->executable); // from file.h
   }
   lock_release(&file_system_lock);
-  
+  cur->exit = 1;
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;

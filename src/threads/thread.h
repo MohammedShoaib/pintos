@@ -105,6 +105,9 @@ struct thread
 		// for sys calls
     struct list file_list;      // list of files
     int fd;                     // file descriptor
+    int load_status;
+    int wait;
+    int exit;
     struct file* executable; //TODO: do we need   // use for denying writes to executables
     struct list lock_list; //TODO: do we need      // use to keep track of locks the thread holds
   };
