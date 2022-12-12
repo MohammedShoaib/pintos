@@ -62,27 +62,38 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_HALT:
       syscall_halt();
       break;
-      
+
     case SYS_EXIT:
       // fill arg with the amount of arguments needed
       get_args(f, &arg[0], 1);
       syscall_exit(arg[0]);
       break;
+
+    case SYS_EXEC:
+      get_args(f, &arg[0], 1);
+      validate_str((const void*)arg[0]);
+      arg[0] = getpage_ptr((const void *)arg[0]);
+      f->eax = syscall_exec((const char*)arg[0]); // execute the command line
+      break;
+
     case SYS_WAIT:
-          // fill arg with the amount of arguments needed
-          get_args(f, &arg[0], 1);
-          f->eax = syscall_wait(arg[0]);
-          break;
+      // fill arg with the amount of arguments needed
+      get_args(f, &arg[0], 1);
+      f->eax = syscall_wait(arg[0]);
+      break;
+
     case SYS_OPEN:
       get_args(f, &arg[0], 1);
       validate_str((const void*)arg[0]);
       arg[0] = getpage_ptr((const void *)arg[0]);
       f->eax = syscall_open((const char *)arg[0]);  // open this file
       break;
+
     case SYS_CLOSE:
       get_args (f, &arg[0], 1);
       syscall_close(arg[0]);
       break;
+
     default:
       break;
   }
@@ -127,6 +138,61 @@ syscall_exit (int status)
   }
   printf("%s: exit(%d)\n", cur->name, status);
   thread_exit();
+}
+
+/* syscall exec
+ * Executes the command line and returns
+ * the pid of the thread currently executing
+ * the command.
+ */
+pid_t
+syscall_exec(const char* cmdline)
+{
+    pid_t pid = process_execute(cmdline);
+    struct child_proc *child_process_ptr = find_child_process(pid);
+    if (!child_process_ptr)
+    {
+      return ERROR;
+    }
+    /* check if process if loaded */
+    if (child_process_ptr->load_status == NOT_LOADED)
+    {
+      sema_down(&child_process_ptr->sema_load);
+    }
+    /* check if process failed to load */
+    if (child_process_ptr->load_status == LOAD_FAIL)
+    {
+      remove_child_process(child_process_ptr);
+      return ERROR;
+    }
+    return pid;
+}
+
+/* wait */
+int
+syscall_wait(pid_t pid)
+{
+  return process_wait(pid);
+}
+
+/* syscall_create */
+bool
+syscall_create(const char* file_name, unsigned starting_size)
+{
+  lock_acquire(&file_system_lock);
+  bool successful = filesys_create(file_name, starting_size); // from filesys.h
+  lock_release(&file_system_lock);
+  return successful;
+}
+
+/* syscall_remove */
+bool
+syscall_remove(const char* file_name)
+{
+  lock_acquire(&file_system_lock);
+  bool successful = filesys_remove(file_name); // from filesys.h
+  lock_release(&file_system_lock);
+  return successful;
 }
 
 /* syscall_open */
