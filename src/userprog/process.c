@@ -455,65 +455,71 @@ setup_stack (void **esp, char **saveptr, const char *filename)
     palloc_free_page(kpage);
     return success;
   }
-  const int DEFAULT_ARGV = 2;
+ 
+  long char_size = sizeof(char*);
   char* token;
-  char** argv = malloc(DEFAULT_ARGV*sizeof(char*));
-  char** cont = malloc(DEFAULT_ARGV*sizeof(char*));
+  char** argv = malloc(2 * char_size);
+  char** cl_args = malloc(2 * char_size);
   
-  int i, argc = 0;
-  int byte_size = 0;
-  int arg_size = DEFAULT_ARGV;
+  int index = 0;
+  int num_args = 0;
+
+  int curr_arg_size = 2;
+
   // copy command line into cont and resize to necessary size
-  for (token = (char*)filename; token != NULL; token = strtok_r(NULL, " ", saveptr)){
-    cont[argc] = token;
-    argc++;
-    if (argc >= arg_size) {
-      arg_size *= 2;
-      cont = realloc (cont, arg_size*sizeof(char*));
-      argv = realloc (argv, arg_size*sizeof(char*));
+  for (token = (char*) filename; token != NULL; token = strtok_r(NULL, " ", saveptr)){
+    cl_args[num_args] = token;
+    num_args++;
+    if (num_args >= curr_arg_size) {
+      curr_arg_size *= 2;
+      cl_args = realloc (cl_args, curr_arg_size * char_size);
+      argv = realloc (argv, curr_arg_size * char_size);
     }
   }
+
   // copy content of cont over to argv
-  for (i = argc-1; i >= 0; i--){
-    *esp -= strlen(cont[i])+1;
-    byte_size += strlen(cont[i])+1;
-    argv[i] = *esp;
-    memcpy (*esp, cont[i], strlen(cont[i])+1);
+  for (index = num_args; index > 0; index--) {
+    int arg_size = strlen(cl_args[index-1]) + 1;
+    *esp -= arg_size;
+    argv[index-1] = *esp;
+    memcpy (*esp, cl_args[index-1], arg_size);
   }
   // add null 
-  argv[argc] = 0;
+  argv[num_args] = 0;
   
   // word align by word size (4 bytes)
-  i = (size_t) *esp % 4;
-  if (i){
-    *esp -= i;
-    byte_size += i;
-    memcpy(*esp, &argv[argc], i );
+  int word_align = (size_t) *esp % 4;
+  if (word_align) {
+    *esp -= word_align;
+    memcpy(*esp, &argv[num_args], word_align);
   }
-  // push argv[i] for i = 0, 1, ..., argc
-  for (i = argc; i >= 0; i--){
-    *esp -= sizeof(char*);
-    byte_size += sizeof(char*);
-    memcpy (*esp, &argv[i], sizeof(char*));
+
+  // push argv[i] for i = 0, 1, ..., num_args
+  for (index = num_args; index >= 0; index--){
+    *esp -= char_size;
+    memcpy (*esp, &argv[index], char_size);
   }
   
   token = *esp;
+
   // push argv
   *esp -= sizeof (char**);
-  byte_size += sizeof (char**);
   memcpy(*esp, &token, sizeof(char**));
+
   // push argc
   *esp -= sizeof (int);
-  byte_size += sizeof (int);
-  memcpy(*esp, &argc, sizeof(int));
+  memcpy(*esp, &num_args, sizeof(int));
+
   // push fake return address
   *esp -= sizeof(void*);
-  byte_size += sizeof(void*);
-  memcpy(*esp, &argv[argc], sizeof (void*));
-  // free argv and cont
+  memcpy(*esp, &argv[num_args], sizeof (void*));
+
+  // free up memory
   free(argv);
-  free(cont);
+  free(cl_args);
+
   return success;
+
 }
 
 
