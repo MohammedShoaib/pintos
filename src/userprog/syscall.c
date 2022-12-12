@@ -232,19 +232,19 @@ get_args (struct intr_frame *f, int *args, int num_of_args)
 
 /* System call exit 
  * Checks if the current thread to exit is a child.
- * If so update the child's parent information accordingly.
+ * If so update the child's parent_tid information accordingly.
  */
 void
 syscall_exit (int status)
 {
   struct thread *cur = thread_current();
-  if (is_thread_alive(cur->parent) && cur->cp)
+  if (is_thread_alive(cur->parent_tid) && cur->child_ptr)
   {
     if (status < 0)
     {
       status = -1;
     }
-    cur->cp->status = status;
+    cur->child_ptr->status = status;
   }
   printf("%s: exit(%d)\n", cur->name, status);
   thread_exit();
@@ -259,7 +259,7 @@ pid_t
 syscall_exec(const char* cmdline)
 {
     pid_t pid = process_execute(cmdline);
-    struct child_process *child_process_ptr = find_child_process(pid);
+    struct child_proc *child_process_ptr = find_child_process(pid);
     if (!child_process_ptr)
     {
       return ERROR;
@@ -267,7 +267,7 @@ syscall_exec(const char* cmdline)
     /* check if process if loaded */
     if (child_process_ptr->load_status == NOT_LOADED)
     {
-      sema_down(&child_process_ptr->load_sema);
+      sema_down(&child_process_ptr->sema_load);
     }
     /* check if process failed to load */
     if (child_process_ptr->load_status == LOAD_FAIL)
@@ -485,19 +485,19 @@ getpage_ptr(const void *vaddr)
 }
 
 /* find a child process based on pid */
-struct child_process* find_child_process(int pid)
+struct child_proc* find_child_process(int pid)
 {
   struct thread *t = thread_current();
   struct list_elem *e;
   struct list_elem *next;
   
-  for (e = list_begin(&t->child_list); e != list_end(&t->child_list); e = next)
+  for (e = list_begin(&t->child_proc_list); e != list_end(&t->child_proc_list); e = next)
   {
     next = list_next(e);
-    struct child_process *cp = list_entry(e, struct child_process, elem);
-    if (pid == cp->pid)
+    struct child_proc *child_ptr = list_entry(e, struct child_proc, elem);
+    if (pid == child_ptr->pid)
     {
-      return cp;
+      return child_ptr;
     }
   }
   return NULL;
@@ -505,10 +505,10 @@ struct child_process* find_child_process(int pid)
 
 /* remove a specific child process */
 void
-remove_child_process (struct child_process *cp)
+remove_child_process (struct child_proc *child_ptr)
 {
-  list_remove(&cp->elem);
-  free(cp);
+  list_remove(&child_ptr->elem);
+  free(child_ptr);
 }
 
 /* remove all child processes for a thread */
@@ -516,14 +516,13 @@ void remove_all_child_processes (void)
 {
   struct thread *t = thread_current();
   struct list_elem *next;
-  struct list_elem *e = list_begin(&t->child_list);
+  struct list_elem *e = list_begin(&t->child_proc_list);
   
-  for (;e != list_end(&t->child_list); e = next)
-  {
+  for (;e != list_end(&t->child_proc_list); e = next) {
     next = list_next(e);
-    struct child_process *cp = list_entry(e, struct child_process, elem);
-    list_remove(&cp->elem); //remove child process
-    free(cp);
+    struct child_proc *child_ptr = list_entry(e, struct child_proc, elem);
+    list_remove(&child_ptr->elem); //remove child process
+    free(child_ptr);
   }
 }
 

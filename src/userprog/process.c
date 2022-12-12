@@ -70,13 +70,13 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp, &saveptr);
 
-  if (success){
-    thread_current()->cp->load_status = LOADED;
+  if (!success) {
+    thread_current()->child_ptr->load_status = LOAD_FAIL;
   }
   else {
-    thread_current()->cp->load_status = LOAD_FAIL;
+    thread_current()->child_ptr->load_status = LOADED;
   }
-  sema_up (&thread_current()->cp->load_sema);
+  sema_up (&thread_current()->child_ptr->sema_load);
   
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -105,19 +105,16 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  struct child_process* child_process_ptr = find_child_process(child_tid);
-  if (!child_process_ptr)
-  {
+  struct child_proc* child_process_ptr = find_child_process(child_tid);
+  if (!child_process_ptr) {
     return ERROR;
   }
   
-  if (child_process_ptr->wait)
-  {
+  if (child_process_ptr->wait) {
     return ERROR;
   }
   child_process_ptr->wait = 1; // set wait for child to true
-  while (!child_process_ptr->exit)
-  {
+  while (!child_process_ptr->exit) {
     asm volatile ("" : : : "memory");
   }
   int status = child_process_ptr->status;
@@ -134,20 +131,21 @@ process_exit (void)
   
   lock_acquire(&file_system_lock);
   process_close_file(CLOSE_ALL_FD);
+
   /* check if current thread is an executable if so we will close it */
-  if (cur->executable)
-  {
-    file_close(cur->executable); // from file.h
+  if (cur->executable) {
+    // in file.h
+    file_close(cur->executable); 
   }
   lock_release(&file_system_lock);
   
   /* free the list of child processes */
   remove_all_child_processes();
   
-  if (is_thread_alive(cur->parent))
+  if (is_thread_alive(cur->parent_tid))
   {
-    cur->cp->exit = 1;
-    sema_up(&cur->cp->exit_sema);
+    cur->child_ptr->exit = 1;
+    sema_up(&cur->child_ptr->sema_exit);
   }
   
   /* Destroy the current process's page directory and switch back
@@ -183,7 +181,7 @@ process_activate (void)
      interrupts. */
   tss_update ();
 }
-
+
 /* We load ELF binaries.  The following definitions are taken
    from the ELF specification, [ELF1], more-or-less verbatim.  */
 
@@ -496,67 +494,68 @@ setup_stack (void **esp, char **saveptr, const char *filename)
     palloc_free_page(kpage);
     return success;
   }
-  const int DEFAULT_ARGV = 2;
-  char* token;
-  char** argv = malloc(DEFAULT_ARGV*sizeof(char*));
-  char** cont = malloc(DEFAULT_ARGV*sizeof(char*));
   
-  int i, argc = 0;
-  int byte_size = 0;
-  int arg_size = DEFAULT_ARGV;
-  // copy command line into cont and resize to necessary size
-  for (token = (char*)filename; token != NULL; token = strtok_r(NULL, " ", saveptr)){
-    cont[argc] = token;
-    argc++;
-    if (argc >= arg_size) {
-      arg_size *= 2;
-      cont = realloc (cont, arg_size*sizeof(char*));
-      argv = realloc (argv, arg_size*sizeof(char*));
+  char* token;
+  char** argv = malloc(2 * sizeof(char*));
+  char** cl_args = malloc(2 * sizeof(char*));
+  
+  int index = 0;
+  int num_args = 0;
+
+  int curr_arg_size = 2;
+
+  // copy command line into cl_args and resize if more args
+  for (token = (char*) filename; token != NULL; token = strtok_r(NULL, " ", saveptr)){
+    cl_args[num_args] = token;
+    num_args++;
+    if (num_args >= curr_arg_size) {
+      curr_arg_size *= 2;
+      cl_args = realloc (cl_args, curr_arg_size * sizeof(char*));
+      argv = realloc (argv, curr_arg_size * sizeof(char*));
     }
   }
-  // copy content of cont over to argv
-  for (i = argc-1; i >= 0; i--){
-    *esp -= strlen(cont[i])+1;
-    byte_size += strlen(cont[i])+1;
-    argv[i] = *esp;
-    memcpy (*esp, cont[i], strlen(cont[i])+1);
+
+  // copy contents
+  for (index = num_args-1; index >= 0; index--) {
+    *esp -= strlen(cl_args[index]) + 1;
+    argv[index] = *esp;
+    memcpy (*esp, cl_args[index], strlen(cl_args[index]) + 1);
   }
-  // add null 
-  argv[argc] = 0;
+
+  // add null to stack
+  argv[num_args] = 0;
   
-  // word align by word size (4 bytes)
-  i = (size_t) *esp % 4;
-  if (i){
-    *esp -= i;
-    byte_size += i;
-    memcpy(*esp, &argv[argc], i );
+  // word align by word size = 4 bytes
+  int word_align = (size_t) *esp % 4;
+  if (word_align) {
+    *esp -= word_align;
+    memcpy(*esp, &argv[num_args], word_align);
   }
-  // push argv[i] for i = 0, 1, ..., argc
-  for (i = argc; i >= 0; i--){
+
+  // push argv[index] all num_args
+  for (index = num_args; index >= 0; index--){
     *esp -= sizeof(char*);
-    byte_size += sizeof(char*);
-    memcpy (*esp, &argv[i], sizeof(char*));
+    memcpy (*esp, &argv[index], sizeof(char*));
   }
   
   token = *esp;
+
   // push argv
   *esp -= sizeof (char**);
-  byte_size += sizeof (char**);
   memcpy(*esp, &token, sizeof(char**));
-  // push argc
+
+  // push argc param
   *esp -= sizeof (int);
-  byte_size += sizeof (int);
-  memcpy(*esp, &argc, sizeof(int));
-  // push fake return address
+  memcpy(*esp, &num_args, sizeof(int));
+
+  // push return address
   *esp -= sizeof(void*);
-  byte_size += sizeof(void*);
-  memcpy(*esp, &argv[argc], sizeof (void*));
-  // free argv and cont
+  memcpy(*esp, &argv[num_args], sizeof (void*));
+
+  // free up memory
   free(argv);
-  free(cont);
-  // hex dump to check
-  // hex_dump(0, *esp, byte_size, 1); 
-  // hex_dump((int)*esp+byte_size, *esp, byte_size, 1);
+  free(cl_args);
+
   return success;
 }
 

@@ -12,14 +12,14 @@ void syscall_init (void);
 #define CLOSE_ALL_FD -1
 #define USER_VADDR_BOTTOM ((void *) 0x08048000)
 
-struct child_process {
+struct child_proc {
   int pid;
   int load_status;
   int wait;
   int exit;
   int status;
-  struct semaphore load_sema;
-  struct semaphore exit_sema;
+  struct semaphore sema_load;
+  struct semaphore sema_exit;
   struct list_elem elem;
 };
 
@@ -32,8 +32,8 @@ struct process_file {
 struct lock file_system_lock;
 
 int getpage_ptr (const void *vaddr);
-struct child_process* find_child_process (int pid);
-void remove_child_process (struct child_process *child);
+struct child_proc* find_child_process (int pid);
+void remove_child_process (struct child_proc *child);
 void remove_all_child_processes (void);
 struct file* get_file(int filedes);
 void process_close_file (int file_descriptor);

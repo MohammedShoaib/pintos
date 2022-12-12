@@ -106,10 +106,10 @@ struct thread
     struct list file_list;      // list of files
     int fd;                     // file descriptor
     
-    struct list child_list;     // list of child processes
-    tid_t parent;               // id of the parent
+    struct list child_proc_list;     // list of child processes
+    tid_t parent_tid;               // id of the parent_tid
     
-    struct child_process* cp;   // point to child process
+    struct child_proc* child_ptr;   // point to child process
     struct file* executable;    // use for denying writes to executables
     struct list lock_list;      // use to keep track of locks the thread holds
   };
@@ -151,6 +151,6 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 int is_thread_alive (int pid);
-struct child_process* add_child_process (int pid);
+struct child_proc* child_add (int pid);
 void thread_release_locks(void);
 #endif /* threads/thread.h */

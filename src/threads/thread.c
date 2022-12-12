@@ -209,9 +209,9 @@ thread_create (const char *name, int priority,
   intr_set_level (old_level);
 
 	// add the child process to a child list
-  t->parent = thread_tid();
-  struct child_process *cp = add_child_process(t->tid);
-  t->cp = cp;
+  t->parent_tid = thread_tid();
+  struct child_proc *child_ptr = child_add(t->tid);
+  t->child_ptr = child_ptr;
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -480,10 +480,13 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
 	list_init(&t->file_list);
+
   t->fd = 2;                  // minimum file descriptor is 2
-  list_init(&t->child_list);
-  t->cp = NULL;               //children of parent is null at the start
-  t->parent = -1;             // there is no parent yet
+  list_init(&t->child_proc_list);
+
+  t->child_ptr = NULL;               //children of parent_tid is null at the start
+  t->parent_tid = -1;             // there is no parent_tid yet
+  
   list_init(&t->lock_list);
   t->executable = NULL;
 }
@@ -597,42 +600,40 @@ allocate_tid (void)
 
   return tid;
 }
-
+
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-/* Traverse through every list of threads and check if thread with 
-   the desired pid is alive */
+// Traverse list of threads and check if thread with pid is alive.
 int is_thread_alive (int pid){
-  struct list_elem *e;
+  struct list_elem *curr_ele;
   struct list_elem *next;
-  for (e = list_begin(&all_list); e != list_end(&all_list); e = next)
-  {
-    next = list_next(e);
-    struct thread *t = list_entry (e, struct thread, allelem);
-    if (t->tid == pid)
-    {
-      // pid matches return true
+  for (curr_ele = list_begin(&all_list); curr_ele != list_end(&all_list); curr_ele = next) {
+    next = list_next(curr_ele);
+    struct thread *t = list_entry (curr_ele, struct thread, allelem);
+    if (t->tid == pid) {
       return 1;
     }
   }
-  return 0; // no tid matches then thread is no longer alive
+  return 0;
 }
 
-/* add a new child process to list */
-struct child_process* add_child_process (int pid)
+/* Add new child process. */
+struct child_proc* child_add (int pid)
 {
-  struct child_process *cp = malloc(sizeof(struct child_process));
-  cp->pid = pid;
-  cp->load_status = NOT_LOADED;
-  cp->wait = 0; // false
-  cp->exit = 0; // false
-  sema_init(&cp->load_sema, 0);
-  sema_init(&cp->exit_sema, 0);
-  list_push_back(&thread_current()->child_list, &cp->elem);
+  struct child_proc *child_ptr = malloc(sizeof(struct child_proc));
+  child_ptr->pid = pid;
+  child_ptr->load_status = NOT_LOADED;
+  child_ptr->wait = 0; // false
+  child_ptr->exit = 0; // false
+
+  sema_init(&child_ptr->sema_exit, 0);
+  sema_init(&child_ptr->sema_load, 0);
   
-  return cp;
+  list_push_back(&thread_current()->child_proc_list, &child_ptr->elem);
+  
+  return child_ptr;
 }
 
 /* releases all the locks thread holds */
