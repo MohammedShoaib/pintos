@@ -68,10 +68,12 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+  lock_acquire(&file_system_lock);
   success = load (file_name, &if_.eip, &if_.esp, &saveptr);
-  /* If load failed, quit. */
+  lock_release(&file_system_lock);
+    /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success){ 
+    if (!success){
     thread_exit ();
   }
   /* Start the user process by simulating a return from an
@@ -88,8 +90,14 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED)
+process_wait (tid_t tid UNUSED)
 {
+    while (true) {
+        thread_yield(tid);
+        if (is_thread_alive(tid)) {
+            return -1;
+        }
+    }
   return -1;
 }
 

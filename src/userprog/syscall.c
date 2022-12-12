@@ -104,6 +104,7 @@ syscall_exit (int status)
 {
   struct thread *cur = thread_current();
   printf("%s: exit(%d)\n", cur->name, status);
+  //TODO: do we need status
   thread_exit();
 }
 
