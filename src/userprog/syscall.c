@@ -21,6 +21,7 @@ static void syscall_handler (struct intr_frame *);
 int add_file (struct file *file_name);
 void get_args (struct intr_frame *f, int *arg, int num_of_args);
 void syscall_halt (void);
+pid_t syscall_exec(const char* cmdline);
 int syscall_wait(pid_t pid);
 void syscall_close(int filedes);
 
@@ -175,26 +176,6 @@ syscall_wait(pid_t pid)
   return process_wait(pid);
 }
 
-/* syscall_create */
-bool
-syscall_create(const char* file_name, unsigned starting_size)
-{
-  lock_acquire(&file_system_lock);
-  bool successful = filesys_create(file_name, starting_size); // from filesys.h
-  lock_release(&file_system_lock);
-  return successful;
-}
-
-/* syscall_remove */
-bool
-syscall_remove(const char* file_name)
-{
-  lock_acquire(&file_system_lock);
-  bool successful = filesys_remove(file_name); // from filesys.h
-  lock_release(&file_system_lock);
-  return successful;
-}
-
 /* syscall_open */
 int
 syscall_open(const char *file_name)
@@ -209,13 +190,6 @@ syscall_open(const char *file_name)
   int filedes = add_file(file_ptr);
   lock_release(&file_system_lock);
   return filedes;
-}
-
-/* wait */
-int
-syscall_wait(pid_t pid)
-{
-    return process_wait(pid);
 }
 
 /* syscall_close */
