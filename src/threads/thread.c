@@ -475,7 +475,6 @@ init_thread (struct thread *t, const char *name, int priority)
   list_push_back (&all_list, &t->allelem);
   list_init(&t->file_list);
   t->fd = 2;                  // minimum file descriptor is 2
-  list_init(&t->child_list);
   list_init(&t->lock_list);
   t->executable = NULL;
 }

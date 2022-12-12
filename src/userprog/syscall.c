@@ -69,7 +69,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       get_args(f, &arg[0], 1);
       validate_str((const void*)arg[0]);
       arg[0] = getpage_ptr((const void *)arg[0]);
-      f->eax = syscall_open((const char *)arg[0]);   open this file
+      f->eax = syscall_open((const char *)arg[0]);
       break;
     default:
       break;
