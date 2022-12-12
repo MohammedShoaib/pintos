@@ -274,7 +274,6 @@ load (const char *file_name, void (**eip) (void), void **esp, char **saveptr)
   process_activate ();
 
   /* Open executable file. */
-  //lock_acquire(&file_system_lock);
   file = filesys_open (file_name);
   if (file == NULL) 
     {
@@ -369,10 +368,8 @@ load (const char *file_name, void (**eip) (void), void **esp, char **saveptr)
  done:
   /* We arrive here whether the load is successful or not. */
   //file_close (file);
-  //lock_release(&file_system_lock);
   return success;
 }
-
 /* load() helpers. */
 
 static bool install_page (void *upage, void *kpage, bool writable);
