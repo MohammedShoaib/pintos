@@ -93,8 +93,8 @@ int
 process_wait (tid_t tid UNUSED)
 {
     while (true) {
-        thread_yield(tid);
-        if (is_thread_alive(tid)) {
+        thread_yield();
+        if (is_thread_alive(tid) == 0) {
             return -1;
         }
     }
